@@ -148,8 +148,9 @@ class PokeproPlugin(Star):
                 persona = await self.context.persona_manager.get_default_persona_v3(
                     umo=umo,
                 )
-                persona_id = persona["name"]
-            persona = await self.context.persona_manager.get_persona(persona_id)
+            # 直接获取 persona_id 对应的人设
+            else:
+                persona = await self.context.persona_manager.get_persona(persona_id)
             persona_prompt = persona.system_prompt
             username = self.get_nickname(event, event.get_sender_id())
             format_prompt = prompt_template.format(username=username)
