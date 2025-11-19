@@ -142,14 +142,21 @@ class PokeproPlugin(Star):
                 return None
             contexts = json.loads(conversation.history)
 
-            personality = using_provider.curr_personality
-            personality_prompt = personality["prompt"] if personality else ""
+            persona_id = conversation.persona_id
+            # 未使用 /persona 指令切换过人设，获取默认人设id
+            if not persona_id or persona_id == "[%None]":
+                persona = await self.context.persona_manager.get_default_persona_v3(
+                    umo=umo,
+                )
+                persona_id = persona["name"]
+            persona = await self.context.persona_manager.get_persona(persona_id)
+            persona_prompt = persona.system_prompt
             username = self.get_nickname(event, event.get_sender_id())
             format_prompt = prompt_template.format(username=username)
 
             llm_response = await using_provider.text_chat(
                 prompt=format_prompt,
-                system_prompt=personality_prompt,
+                system_prompt=persona_prompt,
                 contexts=contexts,
             )
             return llm_response.completion_text
