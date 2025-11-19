@@ -158,7 +158,7 @@ class PokeproPlugin(Star):
 
             llm_response = await using_provider.text_chat(
                 prompt=format_prompt,
-                system_prompt=persona_prompt,
+                system_prompt=system_prompt,
                 contexts=contexts,
             )
             return llm_response.completion_text
