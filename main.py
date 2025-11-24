@@ -150,12 +150,18 @@ class PokeproPlugin(Star):
         if not using_provider:
             return None
 
-        persona_id = conversation.persona_id
-        if not persona_id:
-            return None
-        persona: Persona = await self.context.persona_manager.get_persona(
-            persona_id=persona_id
-        )
+        try:
+            persona_id = conversation.persona_id
+            persona: Persona = await self.context.persona_manager.get_persona(
+                persona_id=persona_id
+            )
+            system_prompt = persona.system_prompt
+        except ValueError:
+            # 回退到默认人格
+            personality: Personality = await self.context.persona_manager.get_default_persona_v3(
+                umo=umo
+            )
+            system_prompt = personality["prompt"]
 
         # 获取提示词
         username = await self.get_nickname(event, event.get_sender_id())
@@ -165,7 +171,7 @@ class PokeproPlugin(Star):
         try:
             logger.debug(f"[戳一戳] LLM 调用：{prompt}")
             llm_response = await using_provider.text_chat(
-                system_prompt=persona.system_prompt,
+                system_prompt=system_prompt,
                 prompt=prompt,
                 contexts=contexts,
             )
