@@ -1,33 +1,27 @@
 import asyncio
 import json
 import random
-import re
 import time
 from pathlib import Path
 
 from astrbot.api import logger
 from astrbot.api.event import filter
 from astrbot.api.message_components import At, Face, Image, Plain, Poke
-from astrbot.api.star import Context, Star, register
+from astrbot.api.star import Context, Star
 from astrbot.core.config.astrbot_config import AstrBotConfig
-from astrbot.core.config.default import VERSION
-from astrbot.core.db.po import Persona
+from astrbot.core.db.po import Persona, Personality
 from astrbot.core.message.message_event_result import MessageChain
 from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import (
     AiocqhttpMessageEvent,
 )
-from astrbot.core.utils.version_comparator import VersionComparator
+
+from .utils import get_nickname, string_to_list
 
 
-@register("astrbot_plugin_pokepro", "Zhalslar", "...", "...")
 class PokeproPlugin(Star):
     def __init__(self, context: Context, config: AstrBotConfig):
         super().__init__(context)
         self.conf = config
-
-        # 检查版本
-        if not VersionComparator.compare_version(VERSION, "4.5.7") >= 0:
-            raise Exception("AstrBot 版本过低, 请升级至 4.5.7 或更高版本")
 
         # 获取所有 _respond 方法（反戳：LLM：face：图库：禁言：meme：api：开盒）
         self.response_handlers = [
@@ -43,7 +37,7 @@ class PokeproPlugin(Star):
 
         # 初始化权重列表
         weight_str = config.get("weight_str", "")
-        weight_list: list[int] = self._string_to_list(weight_str, "int")  # type: ignore
+        weight_list: list[int] = string_to_list(weight_str, "int")  # type: ignore
         self.weights: list[int] = weight_list + [1] * (
             len(self.response_handlers) - len(weight_list)
         )
@@ -52,57 +46,24 @@ class PokeproPlugin(Star):
         self.last_trigger_time = {}
 
         # 表情ID列表
-        self.face_ids: list[int] = self._string_to_list(config["face_ids_str"], "int")  # type: ignore
+        self.face_ids: list[int] = string_to_list(config["face_ids_str"], "int")  # type: ignore
 
         # 戳一戳图库路径
         self.gallery_path: Path = Path(config.get("gallery_path", ""))
         self.gallery_path.mkdir(parents=True, exist_ok=True)
 
         # meme命令列表
-        self.meme_cmds: list[str] = self._string_to_list(config["meme_cmds_str"], "str")  # type: ignore
+        self.meme_cmds: list[str] = string_to_list(config["meme_cmds_str"], "str")  # type: ignore
 
         # api命令列表
-        self.api_cmds: list[str] = self._string_to_list(config["api_cmds_str"], "str")  # type: ignore
+        self.api_cmds: list[str] = string_to_list(config["api_cmds_str"], "str")  # type: ignore
 
         # 戳一戳关键词
-        self.poke_keywords: list[str] = self._string_to_list(
+        self.poke_keywords: list[str] = string_to_list(
             config["poke_keywords"], "str"
         )  # type: ignore
 
-    def _string_to_list(
-        self,
-        input_str: str,
-        return_type: str = "str",
-        sep: str | list[str] = [":", "：", ",", "，"],
-    ) -> list[str | int]:
-        """
-        将字符串转换为列表，支持自定义一个或多个分隔符和返回类型。
 
-        参数：
-            input_str (str): 输入字符串。
-            return_type (str): 返回类型，'str' 或 'int'。
-            sep (Union[str, List[str]]): 一个或多个分隔符，默认为 [":", "；", ",", "，"]。
-        返回：
-            List[Union[str, int]]
-        """
-        # 如果sep是列表，则创建一个包含所有分隔符的正则表达式模式
-        if isinstance(sep, list):
-            pattern = "|".join(map(re.escape, sep))
-        else:
-            # 如果sep是单个字符，则直接使用
-            pattern = re.escape(sep)
-
-        parts = [p.strip() for p in re.split(pattern, input_str) if p.strip()]
-
-        if return_type == "int":
-            try:
-                return [int(p) for p in parts]
-            except ValueError as e:
-                raise ValueError(f"转换失败 - 无效的整数: {e}")
-        elif return_type == "str":
-            return parts
-        else:
-            raise ValueError("return_type 必须是 'str' 或 'int'")
 
     async def _send_cmd(self, event: AiocqhttpMessageEvent, command: str):
         """发送命令"""
@@ -114,20 +75,6 @@ class PokeproPlugin(Star):
         event.should_call_llm(True)
         event.set_extra("is_poke_event", True)
         self.context.get_event_queue().put_nowait(event)
-
-    @staticmethod
-    async def get_nickname(event: AiocqhttpMessageEvent, user_id) -> str:
-        """获取指定群友的群昵称或Q名"""
-        client = event.bot
-        group_id = event.get_group_id()
-        if group_id:
-            member_info = await client.get_group_member_info(
-                group_id=int(group_id), user_id=int(user_id)
-            )
-            return member_info.get("card") or member_info.get("nickname")
-        else:
-            stranger_info = await client.get_stranger_info(user_id=int(user_id))
-            return stranger_info.get("nickname")
 
     async def _get_llm_respond(
         self, event: AiocqhttpMessageEvent, prompt_template: str
@@ -153,18 +100,20 @@ class PokeproPlugin(Star):
         try:
             persona_id = conversation.persona_id
             persona: Persona = await self.context.persona_manager.get_persona(
-                persona_id=persona_id
+                persona_id=persona_id  # type: ignore
             )
             system_prompt = persona.system_prompt
         except ValueError:
             # 回退到默认人格
-            personality: Personality = await self.context.persona_manager.get_default_persona_v3(
-                umo=umo
+            personality: Personality = (
+                await self.context.persona_manager.get_default_persona_v3(umo=umo)
             )
             system_prompt = personality["prompt"]
 
         # 获取提示词
-        username = await self.get_nickname(event, event.get_sender_id())
+        username = await get_nickname(
+            event.bot, event.get_group_id(), event.get_sender_id()
+        )
         prompt = prompt_template.format(username=username)
 
         # 调用llm

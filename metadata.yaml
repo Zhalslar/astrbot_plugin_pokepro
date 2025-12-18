@@ -1,7 +1,7 @@
-name: astrbot_plugin_pokepro # 这是你的插件的唯一识别名。
+name: astrbot_plugin_pokepro
 display_name: 专业戳一戳
-desc: 【更专业的戳一戳插件】支持触发（反戳：LLM：face：图库：禁言：meme：api：开盒），戳@某人，跟戳 # 插件简短描述
-help:   # 插件的帮助信息
-version: v1.1.7 # 插件版本号。格式：v1.1.1 或者 v1.1
-author: Zhalslar # 作者
-repo: https://github.com/Zhalslar/astrbot_plugin_pokepro # 插件的仓库地址
+desc: 【更专业的戳一戳插件】支持触发（反戳：LLM：face：图库：禁言：meme：api：开盒），戳@某人，跟戳
+help: 略
+version: v1.1.7
+author: Zhalslar
+repo: https://github.com/Zhalslar/astrbot_plugin_pokepro

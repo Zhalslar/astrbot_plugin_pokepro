@@ -5,28 +5,48 @@
         "hint": "反戳：LLM：face：图库：禁言：meme：api：开盒，与回复事件一一对应，请用冒号隔开各权重，数字越大触发对应回复事件的概率越大，权重数量必须与回复事件数量一致，不一致则缺失项默认为1，注意：meme需装memelite插件（rust版和python版都行）才能起效，'开盒'需装box插件才能起效，'api'需装apis插件才能起效",
         "default": "1：5：2：7：1：2：2：1"
     },
-    "follow_poke_th":{
+    "follow_poke_th": {
         "description": "跟戳概率",
         "type": "float",
         "hint": "检测到别人被戳时，随机跟着戳一下",
+        "slider": {
+            "min": 0,
+            "max": 1,
+            "step": 0.01
+        },
         "default": 0.1
     },
     "poke_max_times": {
         "description": "戳一戳最大次数",
         "type": "int",
         "hint": "发送戳一戳时的最大连戳数, 但bot管理员不受限制",
+        "slider": {
+            "min": 1,
+            "max": 10,
+            "step": 1
+        },
         "default": 5
     },
     "poke_interval": {
         "description": "戳一戳间隔",
         "type": "float",
         "hint": "发送戳一戳时，每次戳的时间间隔，单位为秒",
+        "slider": {
+            "min": 0,
+            "max": 10,
+            "step": 1
+        },
         "default": 0
-    }, 
-    "cooldown_seconds":{
+    },
+    "cooldown_seconds": {
         "description": "戳一戳冷却时间",
         "type": "int",
         "hint": "每个用户戳bot的冷却时间，单位为秒，冷却时间内不检测该用户的戳一戳，可有效防止挂逼连戳",
+        "slider": {
+            "min": 2,
+            "max": 30,
+            "step": 1
+        },
         "default": 10
     },
     "llm_prompt_template": {
@@ -35,7 +55,7 @@
         "hint": "触发llm回复时，llm的提示模板",
         "default": "{username} 戳了你一下，请你用一句话回复一下，确保符合人设的同时夹带生气甚至愤怒的情绪，考虑上下文，确保通顺不突兀"
     },
-    "ban_prompt_template": {        
+    "ban_prompt_template": {
         "description": "禁言提示模板",
         "type": "text",
         "hint": "触发禁言时，使用的llm提示模板",
@@ -65,7 +85,7 @@
         "hint": "触发meme回复时，随机调用meme命令列表里的一条命令，请用逗号隔开各个命令",
         "default": "捣，踩，玩，拍，丢，揍，爬，锤，锤，吃，敲，滚，啃，胡桃啃，捏，小丑，震动，晃脑，上香，咖波撕"
     },
-    "api_cmds_str":{
+    "api_cmds_str": {
         "description": "api命令",
         "type": "text",
         "hint": "触发api回复时，随机调用api命令列表里的一条命令，请用逗号隔开各个命令",
