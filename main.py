@@ -9,7 +9,6 @@ from astrbot.api.event import filter
 from astrbot.api.message_components import At, Face, Image, Plain, Poke
 from astrbot.api.star import Context, Star
 from astrbot.core.config.astrbot_config import AstrBotConfig
-from astrbot.core.db.po import Persona, Personality
 from astrbot.core.message.message_event_result import MessageChain
 from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import (
     AiocqhttpMessageEvent,
@@ -65,6 +64,19 @@ class PokeproPlugin(Star):
 
 
 
+    async def _get_conversation(self, event: AiocqhttpMessageEvent):
+        """获取当前会话的 conversation 对象"""
+        umo = event.unified_msg_origin
+        conv_mgr = self.context.conversation_manager
+        try:
+            cid = await conv_mgr.get_curr_conversation_id(umo)
+            if not cid:
+                cid = await conv_mgr.new_conversation(umo, event.get_platform_id())
+            return await conv_mgr.get_conversation(umo, cid)
+        except Exception:
+            logger.warning("[Pokepro] 获取 conversation 失败")
+            return None
+
     async def _send_cmd(self, event: AiocqhttpMessageEvent, command: str):
         """发送命令"""
         obj_msg = event.message_obj.message
@@ -75,60 +87,6 @@ class PokeproPlugin(Star):
         event.should_call_llm(True)
         event.set_extra("is_poke_event", True)
         self.context.get_event_queue().put_nowait(event)
-
-    async def _get_llm_respond(
-        self, event: AiocqhttpMessageEvent, prompt_template: str
-    ) -> str | None:
-        """调用llm回复"""
-        umo = event.unified_msg_origin
-
-        # 获取当前会话上下文
-        conv_mgr = self.context.conversation_manager
-        curr_cid = await conv_mgr.get_curr_conversation_id(umo)
-        if not curr_cid:
-            return None
-        conversation = await conv_mgr.get_conversation(umo, curr_cid)
-        if not conversation:
-            return None
-        contexts = json.loads(conversation.history)
-
-        # 获取当前人格提示词
-        using_provider = self.context.get_using_provider(umo)
-        if not using_provider:
-            return None
-
-        try:
-            persona_id = conversation.persona_id
-            persona: Persona = await self.context.persona_manager.get_persona(
-                persona_id=persona_id  # type: ignore
-            )
-            system_prompt = persona.system_prompt
-        except ValueError:
-            # 回退到默认人格
-            personality: Personality = (
-                await self.context.persona_manager.get_default_persona_v3(umo=umo)
-            )
-            system_prompt = personality["prompt"]
-
-        # 获取提示词
-        username = await get_nickname(
-            event.bot, event.get_group_id(), event.get_sender_id()
-        )
-        prompt = prompt_template.format(username=username)
-
-        # 调用llm
-        try:
-            logger.debug(f"[戳一戳] LLM 调用：{prompt}")
-            llm_response = await using_provider.text_chat(
-                system_prompt=system_prompt,
-                prompt=prompt,
-                contexts=contexts,
-            )
-            return llm_response.completion_text
-
-        except Exception as e:
-            logger.error(f"LLM 调用失败：{e}")
-            return None
 
     @filter.event_message_type(filter.EventMessageType.ALL)
     async def on_poke(self, event: AiocqhttpMessageEvent):
@@ -173,7 +131,8 @@ class PokeproPlugin(Star):
         )[0]
 
         try:
-            await selected_handler(event)
+            async for res in selected_handler(event):
+                yield res
         except Exception as e:
             logger.error(f"执行戳一戳响应失败: {e}", exc_info=True)
 
@@ -186,25 +145,28 @@ class PokeproPlugin(Star):
             times=random.randint(1, self.conf["poke_max_times"]),
         )
         event.stop_event()
+        if False: yield # 保持为异步生成器
 
     async def llm_respond(self, event: AiocqhttpMessageEvent):
         """调用llm回复"""
-        if text := await self._get_llm_respond(event, self.conf["llm_prompt_template"]):
-            await event.send(event.plain_result(text))
-            event.stop_event()
+        username = await get_nickname(event.bot, event.get_group_id(), event.get_sender_id())
+        prompt = self.conf["llm_prompt_template"].format(username=username)
+        conversation = await self._get_conversation(event)
+        yield event.request_llm(prompt=prompt, conversation=conversation)
+        event.stop_event()
 
     async def face_respond(self, event: AiocqhttpMessageEvent):
         """回复emoji(QQ表情)"""
         face_id = random.choice(self.face_ids) if self.face_ids else 287
         faces_chain: list[Face] = [Face(id=face_id)] * random.randint(1, 3)
-        await event.send(MessageChain(chain=faces_chain))  # type: ignore
+        yield event.chain_result(faces_chain)
         event.stop_event()
 
     async def gallery_respond(self, event: AiocqhttpMessageEvent):
         """调用图库进行回复"""
         if files := list(self.gallery_path.iterdir()):
             selected_file = str(random.choice(files))
-            await event.send(MessageChain(chain=[Image(selected_file)]))  # type: ignore
+            yield event.chain_result([Image(selected_file)])
             event.stop_event()
 
     async def ban_respond(self, event: AiocqhttpMessageEvent):
@@ -220,21 +182,26 @@ class PokeproPlugin(Star):
         except Exception:
             prompt_template = self.conf["ban_fail_prompt_template"]
         finally:
-            text = await self._get_llm_respond(event, prompt_template)
-            await event.send(MessageChain(chain=[Plain(text)]))  # type: ignore
+            username = await get_nickname(event.bot, event.get_group_id(), event.get_sender_id())
+            prompt = prompt_template.format(username=username)
+            conversation = await self._get_conversation(event)
+            yield event.request_llm(prompt=prompt, conversation=conversation)
             event.stop_event()
 
     async def meme_respond(self, event: AiocqhttpMessageEvent):
         """回复合成的meme"""
         await self._send_cmd(event, random.choice(self.meme_cmds))
+        if False: yield
 
     async def api_respond(self, event: AiocqhttpMessageEvent):
         "调用api"
         await self._send_cmd(event, random.choice(self.api_cmds))
+        if False: yield
 
     async def box_respond(self, event: AiocqhttpMessageEvent):
         """开盒"""
         await self._send_cmd(event, "盒")
+        if False: yield
 
     @filter.command("戳", alias={"戳我", "戳全体成员"})
     async def poke_handle(self, event: AiocqhttpMessageEvent):
