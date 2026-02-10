@@ -10,35 +10,10 @@ from astrbot.core.star.context import Context
 from .llm import LLMService
 from .config import PluginConfig
 from .cooldown import Cooldown
+from .model import PokeEvent
 from .utils import send_poke, send_cmd
+from .model import PokeModel
 
-# 示例原始数据
-# raw = {
-#     "time": 1770684953,
-#     "self_id": 1959676873,
-#     "post_type": "notice",
-#     "notice_type": "notify",
-#     "sub_type": "poke",
-#     "target_id": 1959676873,
-#     "user_id": 2936169201,
-#     "group_id": 952212291,
-#     "raw_info": [
-#         {"col": "1", "nm": "", "type": "qq", "uid": "u_QmVcCfvoEUKZv6rb2WM7Lw"},
-#         {
-#             "jp": "https://zb.vip.qq.com/v2/pages/nudgeMall?_wv=2&actionId=0&effectId=5",
-#             "src": "http://tianquan.gtimg.cn/nudgeeffect/item/5/client.gif",
-#             "type": "img",
-#         },
-#         {
-#             "col": "1",
-#             "nm": "",
-#             "tp": "0",
-#             "type": "qq",
-#             "uid": "u_4Twr4XaJJ8CPkZI5hKOPsw",
-#         },
-#         {"txt": "的服务器", "type": "nor"},
-#     ],
-# }
 
 class GetPokeHandler:
     def __init__(self, context: Context, config: PluginConfig):
@@ -47,54 +22,60 @@ class GetPokeHandler:
         self.llm = LLMService(context, self.cfg)
         self.cooldown = Cooldown(self.cfg)
 
-        # 获取所有 _respond 方法（反戳：LLM：face：图库：禁言：meme：api：开盒）
-        self.response_handlers = [
-            self.poke_respond,
-            self.llm_respond,
-            self.face_respond,
-            self.gallery_respond,
-            self.ban_respond,
-            self.meme_respond,
-            self.api_respond,
-            self.box_respond,
-        ]
+        # 响应池：模块 → handler
+        self.handlers = {
+            PokeModel.ANTIPOKE: self.respond_poke,
+            PokeModel.LLM: self.respond_llm,
+            PokeModel.FACE: self.respond_face,
+            PokeModel.GALLERY: self.respond_gallery,
+            PokeModel.BAN: self.respond_ban,
+            PokeModel.COMMAND: self.respond_cmd,
+        }
 
-        self.weights: list[int] = self.cfg.weight_list + [1] * (
-            len(self.response_handlers) - len(self.cfg.weight_list)
-        )
+        # 构建“可选模块池”
+        self._modules, self._weights  = self._build_response_pool()
+
+    def _build_response_pool(self):
+        pool = []
+        for module, handler in self.handlers.items():
+            weight = self.cfg.weight_of(module)
+            if weight > 0:
+                pool.append((module, weight))
+
+        if not pool:
+            logger.warning("所有响应模块权重均为 0，戳一戳功能已禁用")
+            return (), ()
+
+        modules, weights = zip(*pool)
+        return modules, weights
+
 
     async def handle(self, event: AiocqhttpMessageEvent):
         """响应戳一戳事件"""
+        if not self._modules:
+            return
+
         if event.get_extra("is_poked"):
             return
-        raw: dict = getattr(event.message_obj, "raw_message", {})
-        if not raw or not raw.get("sub_type") == "poke":
+        evt = PokeEvent.from_event(event)
+        if not evt:
             return
 
-        target_id: int = raw.get("target_id", 0)
-        user_id: int = raw.get("user_id", 0)
-        self_id: int = raw.get("self_id", 0)
-        group_id: int = raw.get("group_id", 0)
+        # 忽略自己发送的戳一戳
+        if evt.is_self_send:
+            return
 
         # 冷却机制
-        if not self.cooldown.allow(group_id, user_id):
+        if not self.cooldown.allow(evt.group_id, evt.user_id):
             return
 
-        # 过滤与自身无关的戳
-        if target_id != self_id:
-            # 跟戳机制
-            if (
-                group_id
-                and user_id != self_id
-                and random.random() < self.cfg.follow_poke_th
-            ):
-                await event.bot.group_poke(group_id=int(group_id), user_id=target_id)
+        # 别人被戳则随机跟戳
+        if not evt.is_self_poked and random.random() < self.cfg.follow_prob:
+            await send_poke(event, evt.target_id)
             return
 
-        # 随机选择一个响应函数
-        handler = random.choices(
-            population=self.response_handlers, weights=self.weights, k=1
-        )[0]
+        module = random.choices(self._modules, self._weights, k=1)[0]
+        handler = self.handlers[module]
 
         try:
             async for msg in handler(event):
@@ -105,61 +86,52 @@ class GetPokeHandler:
 
     # ========== 响应函数 ==========
 
-    async def poke_respond(self, event: AiocqhttpMessageEvent):
+    async def respond_poke(self, event: AiocqhttpMessageEvent):
         """反戳"""
         await send_poke(
             event,
             target_ids=event.get_sender_id(),
-            times=self.cfg.get_poke_times(),
+            times=self.cfg.get_antipoke_times(),
         )
         event.stop_event()
         yield None
 
-    async def llm_respond(self, event: AiocqhttpMessageEvent):
+    async def respond_llm(self, event: AiocqhttpMessageEvent):
         """调用llm回复"""
-        template = self.cfg.llm_prompt_template
+        template = self.cfg.llm.template
         if text := await self.llm.get_respond(event, template):
             yield event.plain_result(text)
 
-    async def face_respond(self, event: AiocqhttpMessageEvent):
+    async def respond_face(self, event: AiocqhttpMessageEvent):
         """回复emoji(QQ表情)"""
-        face_id = random.choice(self.cfg.face_ids)
+        face_id = self.cfg.get_face()
         faces_chain: list[Face] = [Face(id=face_id)] * random.randint(1, 3)
         yield event.chain_result(faces_chain)  # type: ignore
 
-    async def gallery_respond(self, event: AiocqhttpMessageEvent):
+    async def respond_gallery(self, event: AiocqhttpMessageEvent):
         """调用图库进行回复"""
-        if files := list(self.cfg._gallery_path.iterdir()):
-            selected_file = str(random.choice(files))
-            yield event.image_result(selected_file)
+        img = self.cfg.get_image()
+        yield event.image_result(img)
 
-    async def ban_respond(self, event: AiocqhttpMessageEvent):
+    async def respond_ban(self, event: AiocqhttpMessageEvent):
         """禁言"""
+        cfg = self.cfg.ban
         try:
             await event.bot.set_group_ban(
                 group_id=int(event.get_group_id()),
                 user_id=int(event.get_sender_id()),
                 duration=self.cfg.get_ban_time(),
             )
-            prompt_template = self.cfg.ban_prompt_template
+            template = cfg.ban_template
 
         except Exception:
-            prompt_template = self.cfg.ban_fail_prompt_template
+            template = cfg.ban_fail_template
         finally:
-            if text := await self.llm.get_respond(event, prompt_template):
+            if text := await self.llm.get_respond(event, template):
                 yield event.plain_result(text)
 
-    async def meme_respond(self, event: AiocqhttpMessageEvent):
-        """回复合成的meme"""
-        send_cmd(self.context, event, random.choice(self.cfg.meme_cmds))
-        yield None
-
-    async def api_respond(self, event: AiocqhttpMessageEvent):
-        "调用api"
-        send_cmd(self.context, event, random.choice(self.cfg.api_cmds))
-        yield None
-
-    async def box_respond(self, event: AiocqhttpMessageEvent):
-        """开盒"""
-        send_cmd(self.context, event, "盒")
+    async def respond_cmd(self, event: AiocqhttpMessageEvent):
+        """调用命令"""
+        cmd = self.cfg.get_command()
+        send_cmd(self.context, event, cmd)
         yield None
