@@ -1,17 +1,6 @@
 {
-    "follow_prob": {
-        "description": "跟戳概率",
-        "type": "float",
-        "hint": "跟戳机制：检测到别人被戳时, 随机跟着戳一下",
-        "slider": {
-            "min": 0,
-            "max": 1,
-            "step": 0.01
-        },
-        "default": 0.1
-    },
     "poke_max_times": {
-        "description": "戳一戳最大次数",
+        "description": "发戳最大次数",
         "type": "int",
         "hint": "次数限制机制：使用命令 “戳 @某人 次数” 超出最大次数时, 则把次数限制为最大次数, 但bot管理员不受此限制",
         "slider": {
@@ -22,7 +11,7 @@
         "default": 5
     },
     "poke_interval": {
-        "description": "戳一戳间隔",
+        "description": "发戳间隔",
         "type": "float",
         "hint": "防风控机制：发送戳一戳时, 每次戳的时间间隔, 单位为秒。实测设为 0 也没风险, 但适当的间隔会显得更拟人",
         "slider": {
@@ -33,7 +22,7 @@
         "default": 0.5
     },
     "poke_keywords": {
-        "description": "戳一戳关键词",
+        "description": "发戳关键词",
         "type": "list",
         "hint": "蛐蛐检测机制: 用户唤醒bot时, 若消息中包含有列表中的关键词, 则戳几下他",
         "default": [
@@ -43,8 +32,14 @@
             "bot"
         ]
     },
+    "on_poke": {
+        "description": "被戳监听开关",
+        "hint": "打开后, 监听所有戳一戳事件, 然后按权重随机触发一个回复动作, 回复动作包括: 跟戳、反戳、llm回复、回复QQ表情、回复表情包、禁言、触发命令。各个回复动作的详细配置如下",
+        "type": "bool",
+        "default": true
+    },
     "poke_cd": {
-        "description": "戳一戳冷却时间",
+        "description": "被戳监听CD",
         "type": "int",
         "hint": "冷却机制: 每个用户戳bot的冷却时间, 单位为秒, 冷却时间内不检测该用户的戳一戳, 可有效防止挂逼连戳",
         "slider": {
@@ -54,11 +49,16 @@
         },
         "default": 10
     },
-    "on_poke": {
-        "description": "戳一戳监听开关",
-        "hint": "打开后, 监听所有戳一戳事件, 然后按权重随机触发一个回复动作, 回复动作包括: 反戳、llm回复、回复QQ表情、回复表情包、禁言、触发命令。各个回复动作的详细配置如下",
-        "type": "bool",
-        "default": true
+    "follow_prob": {
+        "description": "跟戳概率",
+        "type": "float",
+        "hint": "跟戳机制：检测到别人被戳时, 随机跟着戳一下",
+        "slider": {
+            "min": 0,
+            "max": 1,
+            "step": 0.01
+        },
+        "default": 0.1
     },
     "antipoke": {
         "description": "反戳",
