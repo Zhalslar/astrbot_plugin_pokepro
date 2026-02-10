@@ -75,29 +75,42 @@ class PluginConfig(ConfigNode):
     def __init__(self, cfg: AstrBotConfig, context: Context):
         super().__init__(cfg)
         self.context = context
-        # 初始化权重列表
-        self.weight_list: list[int] = self.string_to_list(self.weight_str, "int")  # type: ignore
-
-        # 表情ID列表
-        self.face_ids: list[int] = self.string_to_list(self.face_ids_str, "int") or [
-            287
-        ]  # type: ignore
 
         # 戳一戳图库路径
         self._gallery_path = Path(self.gallery_path).resolve()
         self._gallery_path.mkdir(parents=True, exist_ok=True)
 
+        # 初始化权重列表
+        self.weight_list: list[int] = self.int_list(self.weight_str)
+
+        # 表情ID列表
+        self.face_ids: list[int] = self.int_list(self.face_ids_str) or [287]
+
         # meme命令列表
-        self.meme_cmds: list[str] = self.string_to_list(self.meme_cmds_str, "str")  # type: ignore
+        self.meme_cmds: list[str] = self.str_list(self.meme_cmds_str)
 
         # api命令列表
-        self.api_cmds: list[str] = self.string_to_list(self.api_cmds_str, "str")  # type: ignore
+        self.api_cmds: list[str] = self.str_list(self.api_cmds_str)
 
         # 戳一戳关键词
-        self._poke_keywords: list[str] = self.string_to_list(self.poke_keywords, "str")  # type: ignore
+        self._poke_keywords: list[str] = self.str_list(self.poke_keywords)
 
         # 禁言时间
         self.min_ban_time, self.max_ban_time = map(int, self.ban_time.split("~"))
+
+    def str_list(
+        self,
+        s: str,
+        sep: tuple[str, ...] = (":", "：", ",", "，"),
+    ) -> list[str]:
+        pattern = "|".join(map(re.escape, sep))
+        return [p.strip() for p in re.split(pattern, s) if p.strip()]
+
+    def int_list(self, s: str) -> list[int]:
+        try:
+            return [int(x) for x in self.str_list(s)]
+        except ValueError as e:
+            raise ValueError(f"配置项包含非法整数: {e}")
 
     def hit_poke_keywords(self, text: str) -> bool:
         """判断是否命中戳一戳关键词"""
@@ -115,38 +128,3 @@ class PluginConfig(ConfigNode):
     def get_ban_time(self) -> int:
         """获取禁言时间"""
         return random.randint(self.min_ban_time, self.max_ban_time)
-
-    @staticmethod
-    def string_to_list(
-        input_str: str,
-        return_type: str = "str",
-        sep: str | list[str] = [":", "：", ",", "，"],
-    ) -> list[str | int]:
-        """
-        将字符串转换为列表，支持自定义一个或多个分隔符和返回类型。
-
-        参数：
-            input_str (str): 输入字符串。
-            return_type (str): 返回类型，'str' 或 'int'。
-            sep (Union[str, List[str]]): 一个或多个分隔符，默认为 [":", "；", ",", "，"]。
-        返回：
-            List[Union[str, int]]
-        """
-        # 如果sep是列表，则创建一个包含所有分隔符的正则表达式模式
-        if isinstance(sep, list):
-            pattern = "|".join(map(re.escape, sep))
-        else:
-            # 如果sep是单个字符，则直接使用
-            pattern = re.escape(sep)
-
-        parts = [p.strip() for p in re.split(pattern, input_str) if p.strip()]
-
-        if return_type == "int":
-            try:
-                return [int(p) for p in parts]
-            except ValueError as e:
-                raise ValueError(f"转换失败 - 无效的整数: {e}")
-        elif return_type == "str":
-            return parts
-        else:
-            raise ValueError("return_type 必须是 'str' 或 'int'")

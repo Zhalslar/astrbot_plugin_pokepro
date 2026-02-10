@@ -1,7 +1,7 @@
 import random
 
 from astrbot.api import logger
-from astrbot.api.message_components import At, Face, Plain, Poke
+from astrbot.api.message_components import Face
 from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import (
     AiocqhttpMessageEvent,
 )
@@ -10,8 +10,35 @@ from astrbot.core.star.context import Context
 from .llm import LLMService
 from .config import PluginConfig
 from .cooldown import Cooldown
-from .utils import send_poke
+from .utils import send_poke, send_cmd
 
+# 示例原始数据
+# raw = {
+#     "time": 1770684953,
+#     "self_id": 1959676873,
+#     "post_type": "notice",
+#     "notice_type": "notify",
+#     "sub_type": "poke",
+#     "target_id": 1959676873,
+#     "user_id": 2936169201,
+#     "group_id": 952212291,
+#     "raw_info": [
+#         {"col": "1", "nm": "", "type": "qq", "uid": "u_QmVcCfvoEUKZv6rb2WM7Lw"},
+#         {
+#             "jp": "https://zb.vip.qq.com/v2/pages/nudgeMall?_wv=2&actionId=0&effectId=5",
+#             "src": "http://tianquan.gtimg.cn/nudgeeffect/item/5/client.gif",
+#             "type": "img",
+#         },
+#         {
+#             "col": "1",
+#             "nm": "",
+#             "tp": "0",
+#             "type": "qq",
+#             "uid": "u_4Twr4XaJJ8CPkZI5hKOPsw",
+#         },
+#         {"txt": "的服务器", "type": "nor"},
+#     ],
+# }
 
 class GetPokeHandler:
     def __init__(self, context: Context, config: PluginConfig):
@@ -38,15 +65,10 @@ class GetPokeHandler:
 
     async def handle(self, event: AiocqhttpMessageEvent):
         """响应戳一戳事件"""
-        if event.get_extra("is_poke_event"):
+        if event.get_extra("is_poked"):
             return
-        raw = getattr(event.message_obj, "raw_message", None)
-
-        if (
-            not raw
-            or not event.message_obj.message
-            or not isinstance(event.message_obj.message[0], Poke)
-        ):
+        raw: dict = getattr(event.message_obj, "raw_message", {})
+        if not raw or not raw.get("sub_type") == "poke":
             return
 
         target_id: int = raw.get("target_id", 0)
@@ -75,23 +97,11 @@ class GetPokeHandler:
         )[0]
 
         try:
-            async for res in handler(event):
-                yield res
+            async for msg in handler(event):
+                if msg is not None:
+                    yield msg
         except Exception as e:
             logger.error(f"执行戳一戳响应失败: {e}", exc_info=True)
-
-    # ========== 内部方法 ==========
-
-    async def _send_cmd(self, event: AiocqhttpMessageEvent, command: str):
-        """发送命令"""
-        obj_msg = event.message_obj.message
-        obj_msg.clear()
-        obj_msg.extend([At(qq=event.get_self_id()), Plain(command)])
-        event.is_at_or_wake_command = True
-        event.message_str = command
-        event.should_call_llm(True)
-        event.set_extra("is_poke_event", True)
-        self.context.get_event_queue().put_nowait(event)
 
     # ========== 响应函数 ==========
 
@@ -103,7 +113,7 @@ class GetPokeHandler:
             times=self.cfg.get_poke_times(),
         )
         event.stop_event()
-        yield
+        yield None
 
     async def llm_respond(self, event: AiocqhttpMessageEvent):
         """调用llm回复"""
@@ -141,15 +151,15 @@ class GetPokeHandler:
 
     async def meme_respond(self, event: AiocqhttpMessageEvent):
         """回复合成的meme"""
-        await self._send_cmd(event, random.choice(self.cfg.meme_cmds))
-        yield
+        send_cmd(self.context, event, random.choice(self.cfg.meme_cmds))
+        yield None
 
     async def api_respond(self, event: AiocqhttpMessageEvent):
         "调用api"
-        await self._send_cmd(event, random.choice(self.cfg.api_cmds))
-        yield
+        send_cmd(self.context, event, random.choice(self.cfg.api_cmds))
+        yield None
 
     async def box_respond(self, event: AiocqhttpMessageEvent):
         """开盒"""
-        await self._send_cmd(event, "盒")
-        yield
+        send_cmd(self.context, event, "盒")
+        yield None

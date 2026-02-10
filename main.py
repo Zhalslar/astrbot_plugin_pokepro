@@ -17,13 +17,21 @@ class PokeproPlugin(Star):
         self.get_poke_handler = GetPokeHandler(context, self.cfg)
 
     @filter.event_message_type(filter.EventMessageType.ALL)
-    async def on_poke(self, event: AiocqhttpMessageEvent):
-        """监听并响应戳一戳事件"""
+    async def on_message(self, event: AiocqhttpMessageEvent):
+        """监听消息"""
+        # 收到自己被戳的事件
         async for msg in self.get_poke_handler.handle(event):
             yield msg
 
+        # 关键字触发戳一戳
+        if not event.is_at_or_wake_command:
+            return
+        if self.cfg.hit_poke_keywords(event.message_str):
+            target_id = event.get_sender_id()
+            await send_poke(event, target_id)
+
     @filter.command("戳", alias={"戳我", "戳全体成员"})
-    async def send_poke_cmd(self, event: AiocqhttpMessageEvent):
+    async def on_poke_cmd(self, event: AiocqhttpMessageEvent):
         """戳 @某人/我/全体成员"""
         msg = event.message_str
         end = msg.split()[-1]
@@ -49,13 +57,4 @@ class PokeproPlugin(Star):
 
         await send_poke(event, target_ids, times=times)
         event.stop_event()
-
-    @filter.event_message_type(filter.EventMessageType.ALL)
-    async def keyword_poke(self, event: AiocqhttpMessageEvent):
-        """根据关键字触发戳一戳"""
-        if not event.is_at_or_wake_command:
-            return
-        if self.cfg.hit_poke_keywords(event.message_str):
-            target_id = event.get_sender_id()
-            await send_poke(event, target_id)
 
