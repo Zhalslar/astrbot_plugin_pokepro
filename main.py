@@ -58,3 +58,4 @@ class PokeproPlugin(Star):
         if self.cfg.hit_poke_keywords(event.message_str):
             target_id = event.get_sender_id()
             await send_poke(event, target_id)
+
