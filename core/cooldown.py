@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import time
+from typing import Dict, Tuple
 
 from .config import PluginConfig
 
@@ -11,8 +12,8 @@ class Cooldown:
 
     def __init__(self, config: PluginConfig):
         self.cfg = config
-        self.cd: float = config.poke_cd
-        self._last_trigger: dict[tuple[int, int], float] = {}
+        self.cooldown_seconds: float = config.cooldown_seconds
+        self._last_trigger: Dict[Tuple[int, int], float] = {}
         self._clock = time.monotonic
 
     def allow(self, group_id: int | None, user_id: int) -> bool:
@@ -28,7 +29,7 @@ class Cooldown:
         now = self._clock()
         last = self._last_trigger.get(key)
 
-        if last is not None and now - last < self.cd:
+        if last is not None and now - last < self.cooldown_seconds:
             return False
 
         self._last_trigger[key] = now
@@ -44,7 +45,7 @@ class Cooldown:
         if last is None:
             return 0.0
 
-        left = self.cd - (self._clock() - last)
+        left = self.cooldown_seconds - (self._clock() - last)
         return max(left, 0.0)
 
     def reset(self, group_id: int | None, user_id: int) -> None:
