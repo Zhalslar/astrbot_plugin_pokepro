@@ -107,7 +107,8 @@ class GetPokeHandler:
     async def respond_face(self, event: AiocqhttpMessageEvent):
         """回复emoji(QQ表情)"""
         face_id = self.cfg.get_face()
-        faces_chain: list[Face] = [Face(id=face_id)] * random.randint(1, 3)
+        copy_count = self.cfg.get_face_copy_count()
+        faces_chain: list[Face] = [Face(id=face_id)] * copy_count
         yield event.chain_result(faces_chain)  # type: ignore
 
     async def respond_meme(self, event: AiocqhttpMessageEvent):

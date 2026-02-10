@@ -1,7 +1,7 @@
 # config.py
 from __future__ import annotations
 
-from pathlib import Path
+import os
 from collections.abc import Mapping, MutableMapping
 import random
 from types import MappingProxyType, UnionType
@@ -121,11 +121,12 @@ class LLMConfig(ConfigNode):
 class FaceConfig(ConfigNode):
     weight: int
     pool: list[int]
+    max_copy_count: int
 
 
 class MemeConfig(ConfigNode):
     weight: int
-    gallery_path: str
+    pool: list[str]
 
 
 class BanConfig(ConfigNode):
@@ -160,20 +161,36 @@ class PluginConfig(ConfigNode):
     def __init__(self, cfg: AstrBotConfig, context: Context):
         super().__init__(cfg)
         self.context = context
+        self.logo_path = "data/plugins/astrbot_plugin_pokepro/logo.png"
+        self.ensure_non_empty_pools()
+        self.save_config()
 
-        # 初始化图库目录
-        gallery_path = Path(self.meme.gallery_path).resolve()
-        gallery_path.mkdir(parents=True, exist_ok=True)
-        self._gallery_path = gallery_path
+    def ensure_non_empty_pools(self) -> None:
+        if not self.face.pool:
+            self.face.pool.append(1)
+            logger.warning("QQ表情池为空，已添加默认值：1")
+
+        if not self.meme.pool:
+            self.meme.pool.append(self.logo_path)
+            logger.warning(f"表情包图片池为空，已添加默认值：{self.logo_path}")
+
+        if not self.command.pool:
+            self.command.pool.append("盒")
+            logger.warning("命令池为空，已添加默认值：盒")
 
     # ================= 业务辅助方法 =================
 
     def hit_poke_keywords(self, text: str) -> bool:
         """判断是否命中关键词"""
         return any(k in text for k in self.poke_keywords)
+
     def get_antipoke_times(self) -> int:
         """获取反戳次数"""
         return random.randint(1, self.antipoke.max_times)
+
+    def get_face_copy_count(self):
+        """获取QQ表情复制次数"""
+        return random.randint(1, self.face.max_copy_count)
 
     def get_ban_time(self) -> int:
         """获取禁言时间"""
@@ -189,10 +206,11 @@ class PluginConfig(ConfigNode):
         return random.choice(self.face.pool)
 
     def get_image(self) -> str:
-        images = list(self._gallery_path.glob("*"))
-        if not images:
+        if not self.meme.pool:
             raise RuntimeError("图库为空，无法发送图片")
-        return random.choice(images).as_posix()
+
+        image_path = random.choice(self.meme.pool)
+        return os.path.abspath(image_path)
 
     def weight_of(self, module: PokeModel) -> int:
         return {
