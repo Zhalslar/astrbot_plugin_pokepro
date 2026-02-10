@@ -2,7 +2,6 @@
 from __future__ import annotations
 
 import os
-from pathlib import Path
 from collections.abc import Mapping, MutableMapping
 import random
 from types import MappingProxyType, UnionType
@@ -127,7 +126,7 @@ class FaceConfig(ConfigNode):
 
 class MemeConfig(ConfigNode):
     weight: int
-    pool: str
+    pool: list[str]
 
 
 class BanConfig(ConfigNode):
@@ -162,15 +161,29 @@ class PluginConfig(ConfigNode):
     def __init__(self, cfg: AstrBotConfig, context: Context):
         super().__init__(cfg)
         self.context = context
+        self.logo_path = "data/plugins/astrbot_plugin_pokepro/logo.png"
+        self.ensure_non_empty_pools()
+        self.save_config()
 
-        # 初始化图库目录
-        self._gallery_path = Path("")
+    def ensure_non_empty_pools(self) -> None:
+        if not self.face.pool:
+            self.face.pool.append(1)
+            logger.warning("QQ表情池为空，已添加默认值：1")
+
+        if not self.meme.pool:
+            self.meme.pool.append(self.logo_path)
+            logger.warning(f"表情包图片池为空，已添加默认值：{self.logo_path}")
+
+        if not self.command.pool:
+            self.command.pool.append("盒")
+            logger.warning("命令池为空，已添加默认值：盒")
 
     # ================= 业务辅助方法 =================
 
     def hit_poke_keywords(self, text: str) -> bool:
         """判断是否命中关键词"""
         return any(k in text for k in self.poke_keywords)
+
     def get_antipoke_times(self) -> int:
         """获取反戳次数"""
         return random.randint(1, self.antipoke.max_times)
@@ -198,7 +211,6 @@ class PluginConfig(ConfigNode):
 
         image_path = random.choice(self.meme.pool)
         return os.path.abspath(image_path)
-
 
     def weight_of(self, module: PokeModel) -> int:
         return {
