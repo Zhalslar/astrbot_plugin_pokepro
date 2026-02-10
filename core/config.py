@@ -143,18 +143,18 @@ class CommandConfig(ConfigNode):
     weight: int
     pool: list[str]
 
+class SchedulerConfig(ConfigNode):
+    enabled: bool
+    cron: str
+    target: str
+    times: int
+
 
 class PluginConfig(ConfigNode):
-    # 基础行为
-    poke_max_times: int
-    poke_interval: float
-    poke_keywords: list[str]
-
     on_poke: bool
     poke_cd: int
     follow_prob: float
 
-    # 行为模块
     antipoke: AntiPokeConfig
     llm: LLMConfig
     face: FaceConfig
@@ -162,11 +162,18 @@ class PluginConfig(ConfigNode):
     ban: BanConfig
     command: CommandConfig
 
+    poke_max_times: int
+    poke_interval: float
+    poke_keywords: list[str]
+
+    scheduler: SchedulerConfig
+
     _plugin_name = "astrbot_plugin_pokepro"
 
     def __init__(self, cfg: AstrBotConfig, context: Context):
         super().__init__(cfg)
         self.context = context
+        self.target_list = self._parse_target()
 
         self.data_dir = StarTools.get_data_dir(self._plugin_name)
         self.plugin_dir = Path(get_astrbot_plugin_path()) / self._plugin_name
@@ -176,6 +183,16 @@ class PluginConfig(ConfigNode):
 
         self._ensure_non_empty_pools()
         self.save_config()
+
+    def _parse_target(self) -> list[tuple[str, str]]:
+        target_list = []
+        for arg in self.scheduler.target:
+            try:
+                group, qq = arg.split(":")
+                target_list.append((group, qq))
+            except ValueError:
+                pass
+        return target_list
 
     def _ensure_non_empty_pools(self) -> None:
         if not self.face.pool:
@@ -226,6 +243,7 @@ class PluginConfig(ConfigNode):
         return random.choice(self.face.pool)
 
     def get_image(self) -> str:
+        """获取图片"""
         rel_path = Path(random.choice(self.meme.pool))
         abs_path = self.data_dir / rel_path
         return str(abs_path.resolve())
