@@ -1,37 +1,4 @@
 {
-    "poke_max_times": {
-        "description": "发戳最大次数",
-        "type": "int",
-        "hint": "次数限制机制：使用命令 “戳 @某人 次数” 超出最大次数时, 则把次数限制为最大次数, 但bot管理员不受此限制",
-        "slider": {
-            "min": 1,
-            "max": 10,
-            "step": 1
-        },
-        "default": 5
-    },
-    "poke_interval": {
-        "description": "发戳间隔",
-        "type": "float",
-        "hint": "防风控机制：发送戳一戳时, 每次戳的时间间隔, 单位为秒。实测设为 0 也没风险, 但适当的间隔会显得更拟人",
-        "slider": {
-            "min": 0,
-            "max": 3,
-            "step": 0.1
-        },
-        "default": 0.5
-    },
-    "poke_keywords": {
-        "description": "发戳关键词",
-        "type": "list",
-        "hint": "蛐蛐检测机制: 用户唤醒bot时, 若消息中包含有列表中的关键词, 则戳几下他",
-        "default": [
-            "笨蛋",
-            "人机",
-            "机器人",
-            "bot"
-        ]
-    },
     "on_poke": {
         "description": "被戳监听开关",
         "hint": "打开后, 监听所有戳一戳事件, 然后按权重随机触发一个回复动作, 回复动作包括: 跟戳、反戳、llm回复、回复QQ表情、回复表情包、禁言、触发命令。各个回复动作的详细配置如下",
@@ -288,6 +255,75 @@
                     "看看原神",
                     "看看emo"
                 ]
+            }
+        }
+    },
+    "poke_max_times": {
+        "description": "发戳最大次数",
+        "type": "int",
+        "hint": "次数限制机制：使用命令 “戳 @某人 次数” 超出最大次数时, 则把次数限制为最大次数, 但bot管理员不受此限制",
+        "slider": {
+            "min": 1,
+            "max": 10,
+            "step": 1
+        },
+        "default": 5
+    },
+    "poke_interval": {
+        "description": "发戳间隔",
+        "type": "float",
+        "hint": "防风控机制：发送戳一戳时, 每次戳的时间间隔, 单位为秒。实测设为 0 也没风险, 但适当的间隔会显得更拟人",
+        "slider": {
+            "min": 0,
+            "max": 3,
+            "step": 0.1
+        },
+        "default": 0.5
+    },
+    "poke_keywords": {
+        "description": "发戳关键词",
+        "type": "list",
+        "hint": "关键词触发机制: 用户唤醒bot时, 若消息中包含有列表中的关键词, 则戳几下他",
+        "default": [
+            "笨蛋",
+            "人机",
+            "机器人",
+            "bot"
+        ]
+    },
+    "scheduler": {
+        "description": "定时戳配置",
+        "type": "object",
+        "items": {
+            "enabled": {
+                "description": "是否启用",
+                "type": "bool",
+                "default": true
+            },
+            "cron": {
+                "description": "定时触发",
+                "hint": "使用 Cron 表达式（分 时 日 月 周）定义。例如：“30 22 * * *” 表示每天 22:30 触发",
+                "type": "string",
+                "default": "30 22 * * *"
+            },
+            "target": {
+                "description": "发戳目标",
+                "hint": "定义在哪个群戳谁，格式为 群号:QQ号",
+                "type": "list",
+                "default": [
+                    "460973561:1959676873"
+                ]
+            },
+            "times": {
+                "description": "戳的次数",
+                "hint": "定义每个目标用户戳多少次",
+                "type": "int",
+                "slider": {
+                    "min": 1,
+                    "max": 10,
+                    "step": 1
+                },
+                "default": 1
             }
         }
     }

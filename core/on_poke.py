@@ -21,7 +21,7 @@ class GetPokeHandler:
     def __init__(self, context: Context, config: PluginConfig, poke_sender: PokeSender):
         self.context = context
         self.cfg = config
-        self.poke_sender = poke_sender
+        self.sender = poke_sender
         self.llm = LLMService(context, self.cfg)
         self.cooldown = Cooldown(self.cfg)
 
@@ -73,7 +73,7 @@ class GetPokeHandler:
 
         # 别人被戳则随机跟戳
         if not evt.is_self_poked and random.random() < self.cfg.follow_prob:
-            await self.poke_sender.send(event, target_id=evt.target_id, times=1)
+            await self.sender.event_send(event, target_id=evt.target_id, times=1)
             return
 
         module = random.choices(self._modules, self._weights, k=1)[0]
@@ -90,7 +90,7 @@ class GetPokeHandler:
 
     async def respond_poke(self, event: AiocqhttpMessageEvent):
         """反戳"""
-        await self.poke_sender.send(
+        await self.sender.event_send(
             event,
             target_id=event.get_sender_id(),
             times=self.cfg.get_antipoke_times(),
