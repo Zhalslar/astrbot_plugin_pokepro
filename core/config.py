@@ -1,130 +1,205 @@
 # config.py
 from __future__ import annotations
 
-from collections.abc import MutableMapping
 from pathlib import Path
+from collections.abc import Mapping, MutableMapping
 import random
-import re
-from typing import Any, get_type_hints
+from types import MappingProxyType, UnionType
+from typing import Any, Union, get_args, get_origin, get_type_hints
 
 from astrbot.api import logger
 from astrbot.core.config.astrbot_config import AstrBotConfig
 from astrbot.core.star.context import Context
 
+from .model import PokeModel
+
 
 class ConfigNode:
-    """配置节点：dict → 强类型属性访问（极简版）"""
+    """
+    配置节点, 把 dict 变成强类型对象。
+
+    规则：
+    - schema 来自子类类型注解
+    - 声明字段：读写，写回底层 dict
+    - 未声明字段和下划线字段：仅挂载属性，不写回
+    - 支持 ConfigNode 多层嵌套（lazy + cache）
+    """
 
     _SCHEMA_CACHE: dict[type, dict[str, type]] = {}
+    _FIELDS_CACHE: dict[type, set[str]] = {}
 
     @classmethod
     def _schema(cls) -> dict[str, type]:
         return cls._SCHEMA_CACHE.setdefault(cls, get_type_hints(cls))
 
+    @classmethod
+    def _fields(cls) -> set[str]:
+        return cls._FIELDS_CACHE.setdefault(
+            cls,
+            {k for k in cls._schema() if not k.startswith("_")},
+        )
+
+    @staticmethod
+    def _is_optional(tp: type) -> bool:
+        if get_origin(tp) in (Union, UnionType):
+            return type(None) in get_args(tp)
+        return False
+
     def __init__(self, data: MutableMapping[str, Any]):
         object.__setattr__(self, "_data", data)
-        for key in self._schema():
+        object.__setattr__(self, "_children", {})
+        for key, tp in self._schema().items():
+            if key.startswith("_"):
+                continue
             if key in data:
                 continue
             if hasattr(self.__class__, key):
                 continue
+            if self._is_optional(tp):
+                continue
             logger.warning(f"[config:{self.__class__.__name__}] 缺少字段: {key}")
 
     def __getattr__(self, key: str) -> Any:
-        if key in self._schema():
-            return self._data.get(key)
+        if key in self._fields():
+            value = self._data.get(key)
+            tp = self._schema().get(key)
+
+            if isinstance(tp, type) and issubclass(tp, ConfigNode):
+                children: dict[str, ConfigNode] = self.__dict__["_children"]
+                if key not in children:
+                    if not isinstance(value, MutableMapping):
+                        raise TypeError(
+                            f"[config:{self.__class__.__name__}] "
+                            f"字段 {key} 期望 dict，实际是 {type(value).__name__}"
+                        )
+                    children[key] = tp(value)
+                return children[key]
+
+            return value
+
+        if key in self.__dict__:
+            return self.__dict__[key]
+
         raise AttributeError(key)
 
     def __setattr__(self, key: str, value: Any) -> None:
-        if key in self._schema():
+        if key in self._fields():
             self._data[key] = value
             return
         object.__setattr__(self, key, value)
+
+    def raw_data(self) -> Mapping[str, Any]:
+        """
+        底层配置 dict 的只读视图
+        """
+        return MappingProxyType(self._data)
+
+    def save_config(self) -> None:
+        """
+        保存配置到磁盘（仅允许在根节点调用）
+        """
+        if not isinstance(self._data, AstrBotConfig):
+            raise RuntimeError(
+                f"{self.__class__.__name__}.save_config() 只能在根配置节点上调用"
+            )
+        self._data.save_config()
 
 
 # ============ 插件自定义配置 ==================
 
 
-class PluginConfig(ConfigNode):
-    # ====== 基础权重 / 概率 ======
-    weight_str: str
-    follow_poke_th: float
+class AntiPokeConfig(ConfigNode):
+    weight: int
+    max_times: int
 
-    # ====== 戳一戳行为控制 ======
-    poke_max_times: int
-    poke_interval: float
-    cooldown_seconds: int
 
-    # ====== LLM 提示 ======
-    llm_prompt_template: str
-    ban_prompt_template: str
-    ban_fail_prompt_template: str
+class LLMConfig(ConfigNode):
+    weight: int
+    template: str
 
-    # ====== 禁言相关 ======
-    ban_time: str
 
-    # ====== 回复资源 ======
-    face_ids_str: str
-    meme_cmds_str: str
-    api_cmds_str: str
+class FaceConfig(ConfigNode):
+    weight: int
+    pool: list[int]
+
+
+class MemeConfig(ConfigNode):
+    weight: int
     gallery_path: str
 
-    # ====== 关键词 ======
-    poke_keywords: str
+
+class BanConfig(ConfigNode):
+    weight: int
+    duration: int
+    delta: int
+    ban_template: str
+    ban_fail_template: str
+
+
+class CommandConfig(ConfigNode):
+    weight: int
+    pool: list[str]
+
+
+class PluginConfig(ConfigNode):
+    # 基础行为
+    follow_prob: float
+    poke_max_times: int
+    poke_interval: float
+    poke_cd: int
+    poke_keywords: list[str]
+
+    # 行为模块
+    antipoke: AntiPokeConfig
+    llm: LLMConfig
+    face: FaceConfig
+    meme: MemeConfig
+    ban: BanConfig
+    command: CommandConfig
 
     def __init__(self, cfg: AstrBotConfig, context: Context):
         super().__init__(cfg)
         self.context = context
 
-        # 戳一戳图库路径
-        self._gallery_path = Path(self.gallery_path).resolve()
-        self._gallery_path.mkdir(parents=True, exist_ok=True)
+        # 初始化图库目录
+        gallery_path = Path(self.meme.gallery_path).resolve()
+        gallery_path.mkdir(parents=True, exist_ok=True)
+        self._gallery_path = gallery_path
 
-        # 初始化权重列表
-        self.weight_list: list[int] = self.int_list(self.weight_str)
-
-        # 表情ID列表
-        self.face_ids: list[int] = self.int_list(self.face_ids_str) or [287]
-
-        # meme命令列表
-        self.meme_cmds: list[str] = self.str_list(self.meme_cmds_str)
-
-        # api命令列表
-        self.api_cmds: list[str] = self.str_list(self.api_cmds_str)
-
-        # 戳一戳关键词
-        self._poke_keywords: list[str] = self.str_list(self.poke_keywords)
-
-        # 禁言时间
-        self.min_ban_time, self.max_ban_time = map(int, self.ban_time.split("~"))
-
-    def str_list(
-        self,
-        s: str,
-        sep: tuple[str, ...] = (":", "：", ",", "，"),
-    ) -> list[str]:
-        pattern = "|".join(map(re.escape, sep))
-        return [p.strip() for p in re.split(pattern, s) if p.strip()]
-
-    def int_list(self, s: str) -> list[int]:
-        try:
-            return [int(x) for x in self.str_list(s)]
-        except ValueError as e:
-            raise ValueError(f"配置项包含非法整数: {e}")
+    # ================= 业务辅助方法 =================
 
     def hit_poke_keywords(self, text: str) -> bool:
-        """判断是否命中戳一戳关键词"""
-        for keyword in self._poke_keywords:
-            if keyword in text:
-                return True
-        return False
-
-    def get_poke_times(self, times: int | None = None) -> int:
-        """获取戳一戳次数"""
-        if times:
-            return min(self.poke_max_times, times)
-        return random.randint(1, self.poke_max_times)
+        """判断是否命中关键词"""
+        return any(k in text for k in self.poke_keywords)
+    def get_antipoke_times(self) -> int:
+        """获取反戳次数"""
+        return random.randint(1, self.antipoke.max_times)
 
     def get_ban_time(self) -> int:
         """获取禁言时间"""
-        return random.randint(self.min_ban_time, self.max_ban_time)
+        delta = random.randint(-self.ban.delta, self.ban.delta)
+        return max(0, self.ban.duration + delta)
+
+    def get_command(self):
+        """获取命令"""
+        return random.choice(self.command.pool)
+
+    def get_face(self) -> int:
+        """获取表情包"""
+        return random.choice(self.face.pool)
+
+    def get_image(self) -> str:
+        images = list(self._gallery_path.glob("*"))
+        if not images:
+            raise RuntimeError("图库为空，无法发送图片")
+        return random.choice(images).as_posix()
+
+    def weight_of(self, module: PokeModel) -> int:
+        return {
+            PokeModel.ANTIPOKE: self.antipoke.weight,
+            PokeModel.LLM: self.llm.weight,
+            PokeModel.FACE: self.face.weight,
+            PokeModel.meme: self.meme.weight,
+            PokeModel.BAN: self.ban.weight,
+            PokeModel.COMMAND: self.command.weight,
+        }[module]
