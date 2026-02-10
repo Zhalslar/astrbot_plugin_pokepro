@@ -146,7 +146,7 @@ class CommandConfig(ConfigNode):
 class SchedulerConfig(ConfigNode):
     enabled: bool
     cron: str
-    target: str
+    target: list[str]
     times: int
 
 
