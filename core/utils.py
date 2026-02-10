@@ -1,12 +1,10 @@
-import asyncio
 import random
 from aiocqhttp import CQHttp
 from astrbot.api import logger
-from astrbot.core.message.components import At, Plain
+from astrbot.core.message.components import At
 from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import (
     AiocqhttpMessageEvent,
 )
-from astrbot.core.star.context import Context
 
 
 async def get_nickname(client: CQHttp, group_id: int | str, user_id: int | str) -> str:
@@ -78,47 +76,3 @@ async def get_member_ids(event: AiocqhttpMessageEvent, num: int = 200) -> list[i
     except Exception as e:
         logger.error(f"获取群成员信息失败：{e}")
         return []
-
-
-async def send_poke(
-    event: AiocqhttpMessageEvent,
-    target_ids: list | str | int,
-    *,
-    times: int = 1,
-    interval: int = 0,
-):
-    """发送戳一戳"""
-    group_id = event.get_group_id()
-    self_id = int(event.get_self_id())
-    if isinstance(target_ids, str | int):
-        target_ids = [target_ids]
-    target_ids = list(
-        dict.fromkeys(  # 保留顺序去重
-            int(tid) for tid in target_ids if int(tid) != self_id
-        )
-    )
-
-    async def poke_func(tid: int):
-        if group_id:
-            await event.bot.group_poke(group_id=int(group_id), user_id=tid)
-        else:
-            await event.bot.friend_poke(user_id=tid)
-
-    try:
-        for tid in target_ids:
-            for _ in range(times):
-                await poke_func(tid)
-                await asyncio.sleep(interval)
-    except Exception as e:
-        logger.error(f"发送戳一戳失败：{e}")
-
-def send_cmd(context: Context, event: AiocqhttpMessageEvent, command: str):
-    """发送命令"""
-    obj_msg = event.message_obj.message
-    obj_msg.clear()
-    obj_msg.extend([At(qq=event.get_self_id()), Plain(command)])
-    event.is_at_or_wake_command = True
-    event.message_str = command
-    event.should_call_llm(True)
-    event.set_extra("is_poked", True)
-    context.get_event_queue().put_nowait(event)

@@ -1,7 +1,9 @@
+import copy
 import random
 
 from astrbot.api import logger
 from astrbot.api.message_components import Face
+from astrbot.core.message.components import At, Plain
 from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import (
     AiocqhttpMessageEvent,
 )
@@ -11,14 +13,15 @@ from .llm import LLMService
 from .config import PluginConfig
 from .cooldown import Cooldown
 from .model import PokeEvent
-from .utils import send_poke, send_cmd
+from .send_poke import PokeSender
 from .model import PokeModel
 
 
 class GetPokeHandler:
-    def __init__(self, context: Context, config: PluginConfig):
+    def __init__(self, context: Context, config: PluginConfig, poke_sender: PokeSender):
         self.context = context
         self.cfg = config
+        self.poke_sender = poke_sender
         self.llm = LLMService(context, self.cfg)
         self.cooldown = Cooldown(self.cfg)
 
@@ -27,13 +30,13 @@ class GetPokeHandler:
             PokeModel.ANTIPOKE: self.respond_poke,
             PokeModel.LLM: self.respond_llm,
             PokeModel.FACE: self.respond_face,
-            PokeModel.GALLERY: self.respond_gallery,
+            PokeModel.meme: self.respond_meme,
             PokeModel.BAN: self.respond_ban,
             PokeModel.COMMAND: self.respond_cmd,
         }
 
         # 构建“可选模块池”
-        self._modules, self._weights  = self._build_response_pool()
+        self._modules, self._weights = self._build_response_pool()
 
     def _build_response_pool(self):
         pool = []
@@ -48,7 +51,6 @@ class GetPokeHandler:
 
         modules, weights = zip(*pool)
         return modules, weights
-
 
     async def handle(self, event: AiocqhttpMessageEvent):
         """响应戳一戳事件"""
@@ -71,7 +73,7 @@ class GetPokeHandler:
 
         # 别人被戳则随机跟戳
         if not evt.is_self_poked and random.random() < self.cfg.follow_prob:
-            await send_poke(event, evt.target_id)
+            await self.poke_sender.send(event, target_id=evt.target_id, times=1)
             return
 
         module = random.choices(self._modules, self._weights, k=1)[0]
@@ -88,9 +90,9 @@ class GetPokeHandler:
 
     async def respond_poke(self, event: AiocqhttpMessageEvent):
         """反戳"""
-        await send_poke(
+        await self.poke_sender.send(
             event,
-            target_ids=event.get_sender_id(),
+            target_id=event.get_sender_id(),
             times=self.cfg.get_antipoke_times(),
         )
         event.stop_event()
@@ -108,8 +110,8 @@ class GetPokeHandler:
         faces_chain: list[Face] = [Face(id=face_id)] * random.randint(1, 3)
         yield event.chain_result(faces_chain)  # type: ignore
 
-    async def respond_gallery(self, event: AiocqhttpMessageEvent):
-        """调用图库进行回复"""
+    async def respond_meme(self, event: AiocqhttpMessageEvent):
+        """回复表情包"""
         img = self.cfg.get_image()
         yield event.image_result(img)
 
@@ -132,6 +134,19 @@ class GetPokeHandler:
 
     async def respond_cmd(self, event: AiocqhttpMessageEvent):
         """调用命令"""
+        evt = copy.deepcopy(event)
+        event.stop_event()
+
         cmd = self.cfg.get_command()
-        send_cmd(self.context, event, cmd)
+
+        obj_msg = evt.message_obj.message
+        obj_msg.clear()
+        obj_msg.extend([At(qq=evt.get_self_id()), Plain(cmd)])
+
+        evt.is_at_or_wake_command = True
+        evt.message_str = cmd
+        evt.should_call_llm(True)
+        evt.set_extra("is_poked", True)
+
+        self.context.get_event_queue().put_nowait(evt)
         yield None

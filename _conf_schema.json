@@ -2,7 +2,7 @@
     "follow_prob": {
         "description": "跟戳概率",
         "type": "float",
-        "hint": "跟戳机制：检测到别人被戳时，随机跟着戳一下",
+        "hint": "跟戳机制：检测到别人被戳时, 随机跟着戳一下",
         "slider": {
             "min": 0,
             "max": 1,
@@ -13,7 +13,7 @@
     "poke_max_times": {
         "description": "戳一戳最大次数",
         "type": "int",
-        "hint": "次数限制机制：使用命令 “戳 @某人 次数”时，超出最大次数时，则把次数限制为最大次数, 但bot管理员不受此限制",
+        "hint": "次数限制机制：使用命令 “戳 @某人 次数” 超出最大次数时, 则把次数限制为最大次数, 但bot管理员不受此限制",
         "slider": {
             "min": 1,
             "max": 10,
@@ -24,13 +24,13 @@
     "poke_interval": {
         "description": "戳一戳间隔",
         "type": "float",
-        "hint": "防风控机制：发送戳一戳时，每次戳的时间间隔，单位为秒。实测设为 0 也没风险，但适当的间隔会显得更拟人",
+        "hint": "防风控机制：发送戳一戳时, 每次戳的时间间隔, 单位为秒。实测设为 0 也没风险, 但适当的间隔会显得更拟人",
         "slider": {
             "min": 0,
-            "max": 10,
-            "step": 1
+            "max": 3,
+            "step": 0.1
         },
-        "default": 0
+        "default": 0.5
     },
     "poke_keywords": {
         "description": "戳一戳关键词",
@@ -46,7 +46,7 @@
     "poke_cd": {
         "description": "戳一戳冷却时间",
         "type": "int",
-        "hint": "冷却机制: 每个用户戳bot的冷却时间，单位为秒，冷却时间内不检测该用户的戳一戳，可有效防止挂逼连戳",
+        "hint": "冷却机制: 每个用户戳bot的冷却时间, 单位为秒, 冷却时间内不检测该用户的戳一戳, 可有效防止挂逼连戳",
         "slider": {
             "min": 2,
             "max": 30,
@@ -54,12 +54,19 @@
         },
         "default": 10
     },
+    "on_poke": {
+        "description": "戳一戳监听开关",
+        "hint": "打开后, 监听所有戳一戳事件, 然后按权重随机触发一个回复动作, 回复动作包括: 反戳、llm回复、回复QQ表情、回复表情包、禁言、触发命令。各个回复动作的详细配置如下",
+        "type": "bool",
+        "default": true
+    },
     "antipoke": {
         "description": "反戳",
         "type": "object",
         "items": {
             "weight": {
                 "description": "触发权重",
+                "hint": "触发概率 = 本权重 / 所有权重之和",
                 "type": "int",
                 "slider": {
                     "min": 0,
@@ -70,6 +77,7 @@
             },
             "max_times": {
                 "description": "最大反戳次数",
+                "hint": "触发反戳时, 从 0 到 最大反戳次数中随机选择一个数, 然后反戳次数为该数",
                 "type": "int",
                 "slider": {
                     "min": 1,
@@ -86,6 +94,7 @@
         "items": {
             "weight": {
                 "description": "触发权重",
+                "hint": "触发概率 = 本权重 / 所有权重之和",
                 "type": "int",
                 "slider": {
                     "min": 0,
@@ -97,17 +106,18 @@
             "template": {
                 "description": "llm提示模板",
                 "type": "text",
-                "hint": "触发llm回复时，llm的提示模板",
-                "default": "{username} 戳了你一下，请你用一句话回复一下，确保符合人设的同时夹带生气甚至愤怒的情绪，考虑上下文，确保通顺不突兀"
+                "hint": "触发llm回复时, llm的提示模板",
+                "default": "{username} 戳了你一下, 请你用一句话回复一下, 确保符合人设的同时夹带生气甚至愤怒的情绪, 考虑上下文, 确保通顺不突兀"
             }
         }
     },
     "face": {
-        "description": "QQ表情回复",
+        "description": "回复QQ表情",
         "type": "object",
         "items": {
             "weight": {
                 "description": "触发权重",
+                "hint": "触发概率 = 本权重 / 所有权重之和",
                 "type": "int",
                 "slider": {
                     "min": 0,
@@ -146,12 +156,13 @@
             }
         }
     },
-    "gallery": {
-        "description": "图库回复",
+    "meme": {
+        "description": "回复表情包",
         "type": "object",
         "items": {
             "weight": {
                 "description": "触发权重",
+                "hint": "触发概率 = 本权重 / 所有权重之和",
                 "type": "int",
                 "slider": {
                     "min": 0,
@@ -160,10 +171,10 @@
                 },
                 "default": 10
             },
-            "path": {
+            "gallery_path": {
                 "description": "图库路径",
                 "type": "text",
-                "hint": "触发图库回复时，随机调用图库路径里的一张图片，推荐用'astrbot_plugin_gallery'插件管理图库",
+                "hint": "触发图库回复时, 随机调用图库路径里的一张图片, 推荐用'astrbot_plugin_gallery'插件管理图库",
                 "default": "data/plugins_data/astrbot_plugin_gallery/戳一戳"
             }
         }
@@ -174,6 +185,7 @@
         "items": {
             "weight": {
                 "description": "触发权重",
+                "hint": "触发概率 = 本权重 / 所有权重之和",
                 "type": "int",
                 "slider": {
                     "min": 0,
@@ -187,7 +199,7 @@
                 "type": "int",
                 "hint": "触发禁言时的基础禁言时间（单位：秒）",
                 "slider": {
-                    "min": 0,
+                    "min": 1,
                     "max": 3600,
                     "step": 1
                 },
@@ -196,7 +208,7 @@
             "delta": {
                 "description": "禁言时间波动范围",
                 "type": "int",
-                "hint": "在基础禁言时间上随机上下浮动的秒数（±），例如 15 表示 base±15",
+                "hint": "在基础禁言时间上随机上下浮动的秒数（±）, 例如 15 表示 base±15",
                 "slider": {
                     "min": 0,
                     "max": 600,
@@ -207,23 +219,24 @@
             "ban_template": {
                 "description": "禁言提示模板",
                 "type": "text",
-                "hint": "触发禁言时，使用的llm提示模板",
-                "default": "{username} 戳了你一下，然后被你禁言了，请你用一句话嘲讽一下，确保符合人设的同时夹带幸灾乐祸的情绪，考虑上下文，确保通顺不突兀"
+                "hint": "触发禁言时, 使用的llm提示模板",
+                "default": "{username} 戳了你一下, 然后被你禁言了, 请你用一句话嘲讽一下, 确保符合人设的同时夹带幸灾乐祸的情绪, 考虑上下文, 确保通顺不突兀"
             },
             "ban_fail_template": {
                 "description": "禁言失败提示模板",
                 "type": "text",
-                "hint": "触发禁言时，如果禁言失败，使用的llm提示模板",
-                "default": "{username} 戳了你一下，你因为你的身份比这人低而无法禁言这人，请你用一句话吐槽一下，确保符合人设的同时夹带生气甚至愤怒的情绪的情绪，考虑上下文，确保通顺不突兀"
+                "hint": "触发禁言时, 如果禁言失败, 使用的llm提示模板",
+                "default": "{username} 戳了你一下, 你因为你的身份比这人低而无法禁言这人, 请你用一句话吐槽一下, 确保符合人设的同时夹带生气甚至愤怒的情绪的情绪, 考虑上下文, 确保通顺不突兀"
             }
         }
     },
     "command": {
-        "description": "命令回复",
+        "description": "触发命令",
         "type": "object",
         "items": {
             "weight": {
                 "description": "触发权重",
+                "hint": "触发概率 = 本权重 / 所有权重之和",
                 "type": "int",
                 "slider": {
                     "min": 0,
@@ -235,7 +248,7 @@
             "pool": {
                 "description": "命令池",
                 "type": "list",
-                "hint": "触发命令回复时，随机发送命令列表里的一个命令， 从而调用其他插件的功能，请用逗号隔开各个命令，并请确保命令在其他插件中有定义",
+                "hint": "触发命令回复时, 随机发送命令列表里的一个命令,  从而调用其他插件的功能, 请用逗号隔开各个命令, 并请确保命令在其他插件中有定义",
                 "default": [
                     "盒",
                     "捣",

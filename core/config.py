@@ -123,9 +123,9 @@ class FaceConfig(ConfigNode):
     pool: list[int]
 
 
-class GalleryConfig(ConfigNode):
+class MemeConfig(ConfigNode):
     weight: int
-    path: str
+    gallery_path: str
 
 
 class BanConfig(ConfigNode):
@@ -153,7 +153,7 @@ class PluginConfig(ConfigNode):
     antipoke: AntiPokeConfig
     llm: LLMConfig
     face: FaceConfig
-    gallery: GalleryConfig
+    meme: MemeConfig
     ban: BanConfig
     command: CommandConfig
 
@@ -162,7 +162,7 @@ class PluginConfig(ConfigNode):
         self.context = context
 
         # 初始化图库目录
-        gallery_path = Path(self.gallery.path).resolve()
+        gallery_path = Path(self.meme.gallery_path).resolve()
         gallery_path.mkdir(parents=True, exist_ok=True)
         self._gallery_path = gallery_path
 
@@ -171,13 +171,6 @@ class PluginConfig(ConfigNode):
     def hit_poke_keywords(self, text: str) -> bool:
         """判断是否命中关键词"""
         return any(k in text for k in self.poke_keywords)
-
-    def get_poke_times(self, times: int | None = None) -> int:
-        """获取戳一戳次数"""
-        if times is not None:
-            return min(self.poke_max_times, times)
-        return random.randint(1, self.poke_max_times)
-
     def get_antipoke_times(self) -> int:
         """获取反戳次数"""
         return random.randint(1, self.antipoke.max_times)
@@ -206,7 +199,7 @@ class PluginConfig(ConfigNode):
             PokeModel.ANTIPOKE: self.antipoke.weight,
             PokeModel.LLM: self.llm.weight,
             PokeModel.FACE: self.face.weight,
-            PokeModel.GALLERY: self.gallery.weight,
+            PokeModel.meme: self.meme.weight,
             PokeModel.BAN: self.ban.weight,
             PokeModel.COMMAND: self.command.weight,
         }[module]

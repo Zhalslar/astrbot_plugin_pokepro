@@ -8,7 +8,7 @@ class PokeModel(Enum):
     ANTIPOKE = "antipoke"
     LLM = "llm"
     FACE = "face"
-    GALLERY = "gallery"
+    meme = "meme"
     BAN = "ban"
     COMMAND = "command"
 
