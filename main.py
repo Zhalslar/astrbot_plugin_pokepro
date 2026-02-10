@@ -52,15 +52,15 @@ class PokeproPlugin(Star):
     async def on_message(self, event: AiocqhttpMessageEvent):
         """监听消息"""
         # 收到自己被戳的事件
-        async for msg in self.get_poke_handler.handle(event):
-            yield msg
+        if self.cfg.on_poke:
+            async for msg in self.get_poke_handler.handle(event):
+                yield msg
 
         # 关键字触发戳一戳
-        if not event.is_at_or_wake_command:
-            return
-        if self.cfg.hit_poke_keywords(event.message_str):
-            await self.poke_sender.send(
-                event,
-                target_id=event.get_sender_id(),
-                times=1,
-            )
+        if event.is_at_or_wake_command and self.cfg.poke_keywords:
+            if self.cfg.hit_poke_keywords(event.message_str):
+                await self.poke_sender.send(
+                    event,
+                    target_id=event.get_sender_id(),
+                    times=1,
+                )

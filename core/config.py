@@ -1,8 +1,8 @@
 # config.py
 from __future__ import annotations
 
-import os
 from collections.abc import Mapping, MutableMapping
+from pathlib import Path
 import random
 from types import MappingProxyType, UnionType
 from typing import Any, Union, get_args, get_origin, get_type_hints
@@ -10,6 +10,8 @@ from typing import Any, Union, get_args, get_origin, get_type_hints
 from astrbot.api import logger
 from astrbot.core.config.astrbot_config import AstrBotConfig
 from astrbot.core.star.context import Context
+from astrbot.core.star.star_tools import StarTools
+from astrbot.core.utils.astrbot_path import get_astrbot_plugin_path
 
 from .model import PokeModel
 
@@ -144,11 +146,13 @@ class CommandConfig(ConfigNode):
 
 class PluginConfig(ConfigNode):
     # 基础行为
-    follow_prob: float
     poke_max_times: int
     poke_interval: float
-    poke_cd: int
     poke_keywords: list[str]
+
+    on_poke: bool
+    poke_cd: int
+    follow_prob: float
 
     # 行为模块
     antipoke: AntiPokeConfig
@@ -158,25 +162,41 @@ class PluginConfig(ConfigNode):
     ban: BanConfig
     command: CommandConfig
 
+    _plugin_name = "astrbot_plugin_pokepro"
+
     def __init__(self, cfg: AstrBotConfig, context: Context):
         super().__init__(cfg)
         self.context = context
-        self.logo_path = "data/plugins/astrbot_plugin_pokepro/logo.png"
-        self.ensure_non_empty_pools()
+
+        self.data_dir = StarTools.get_data_dir(self._plugin_name)
+        self.plugin_dir = Path(get_astrbot_plugin_path()) / self._plugin_name
+        self.logo_path = self.plugin_dir / "logo.png"
+        self.file_pool_dir = self.data_dir / "files" / "meme" / "pool"
+        self.file_pool_dir.mkdir(parents=True, exist_ok=True)
+
+        self._ensure_non_empty_pools()
         self.save_config()
 
-    def ensure_non_empty_pools(self) -> None:
+    def _ensure_non_empty_pools(self) -> None:
         if not self.face.pool:
             self.face.pool.append(1)
             logger.warning("QQ表情池为空，已添加默认值：1")
 
-        if not self.meme.pool:
-            self.meme.pool.append(self.logo_path)
-            logger.warning(f"表情包图片池为空，已添加默认值：{self.logo_path}")
-
         if not self.command.pool:
             self.command.pool.append("盒")
             logger.warning("命令池为空，已添加默认值：盒")
+
+        if not self.meme.pool:
+            target = self.file_pool_dir / self.logo_path.name
+            self.meme.pool.append("files/meme/pool/logo.png")
+            if not target.exists():
+                try:
+                    target.write_bytes(self.logo_path.read_bytes())
+                    logger.warning(f"表情包池为空，已复制 logo 到默认池：{target}")
+                except Exception as e:
+                    logger.error(
+                        f"复制默认表情包失败：{self.logo_path} -> {target}, {e}"
+                    )
 
     # ================= 业务辅助方法 =================
 
@@ -206,11 +226,9 @@ class PluginConfig(ConfigNode):
         return random.choice(self.face.pool)
 
     def get_image(self) -> str:
-        if not self.meme.pool:
-            raise RuntimeError("图库为空，无法发送图片")
-
-        image_path = random.choice(self.meme.pool)
-        return os.path.abspath(image_path)
+        rel_path = Path(random.choice(self.meme.pool))
+        abs_path = self.data_dir / rel_path
+        return str(abs_path.resolve())
 
     def weight_of(self, module: PokeModel) -> int:
         return {
