@@ -77,7 +77,7 @@
             },
             "max_times": {
                 "description": "最大反戳次数",
-                "hint": "触发反戳时, 从 0 到 最大反戳次数中随机选择一个数, 然后反戳次数为该数",
+                "hint": "触发反戳时, 从 1 到 最大反戳次数中随机选择一个数, 然后反戳次数为该数",
                 "type": "int",
                 "slider": {
                     "min": 1,
@@ -153,6 +153,17 @@
                     352,
                     427
                 ]
+            },
+            "max_copy_count": {
+                "description": "最大复制数",
+                "hint": "随机选好一个表情后, 从 1 到 最大复制数 中随机选择一个数 n, 然后复制 n 个表情来一起发送",
+                "type": "int",
+                "slider": {
+                    "min": 1,
+                    "max": 8,
+                    "step": 1
+                },
+                "default": 3
             }
         }
     },
@@ -171,11 +182,11 @@
                 },
                 "default": 10
             },
-            "gallery_path": {
-                "description": "图库路径",
-                "type": "text",
-                "hint": "触发图库回复时, 随机调用图库路径里的一张图片, 推荐用'astrbot_plugin_gallery'插件管理图库",
-                "default": "data/plugins_data/astrbot_plugin_gallery/戳一戳"
+            "pool": {
+                "description": "表情包图片池",
+                "type": "file",
+                "hint": "触发表情包回复时, 随机从池中选出一张图片发送",
+                "default": []
             }
         }
     },
