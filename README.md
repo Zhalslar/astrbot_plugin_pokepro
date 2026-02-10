@@ -28,9 +28,9 @@ _✨ 专业戳一戳 ✨_
 |     命令      |                    说明                    |
 |:-------------:|:-----------------------------------------------:|
 | {被戳}   | 触发回复事件（反戳：LLM：face：图库：禁言：meme：api：开盒） |
-| /戳 次数@XXX | 戳指定人，可指定次数，不填则默认为1  |
-| /戳我   |   戳你自己（你是m吧？）  |
-| /戳全体成员   |   戳全体成员，超过200人的群会随机抽取200人来戳  |
+| 戳 次数@XXX | 戳指定人，可指定次数，不填则默认为1  |
+| 戳我   |   戳你自己（你是m吧？）  |
+| 戳全体成员   |   戳全体成员，超过200人的群会随机抽取200人来戳  |
 
 ### 示例图
 
@@ -44,7 +44,7 @@ _✨ 专业戳一戳 ✨_
 ## 📌 注意事项
 
 - 要使开盒事件生效，得先安装好[开盒插件](https://github.com/Zhalslar/astrbot_plugin_box)
-- 要使meme事件生效，得先安装好[表情包插件](https://github.com/Zhalslar/astrbot_plugin_memelite)或者[表情包插件Rust版](https://github.com/Zhalslar/astrbot_plugin_memelite_rs)
+- 要使meme事件生效，得先安装好[表情包插件](https://github.com/Zhalslar/astrbot_plugin_memelite)
 - 要使api事件生效，得先安装好[api聚合插件](https://github.com/Zhalslar/astrbot_plugin_apis)
 - 同时推荐用[图库管理器](https://github.com/Zhalslar/astrbot_plugin_gallery)动态管理戳一戳图库
 - 想第一时间得到反馈的可以来作者的插件反馈群（QQ群）：460973561（不点star不给进）

@@ -82,7 +82,7 @@ async def get_member_ids(event: AiocqhttpMessageEvent, num: int = 200) -> list[i
 
 async def send_poke(
     event: AiocqhttpMessageEvent,
-    target_ids: list | str,
+    target_ids: list | str | int,
     *,
     times: int = 1,
     interval: int = 0,

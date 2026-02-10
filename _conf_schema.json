@@ -1,14 +1,8 @@
 {
-    "weight_str": {
-        "description": "各回复事件的触发权重",
-        "type": "string",
-        "hint": "反戳：LLM：face：图库：禁言：meme：api：开盒，与回复事件一一对应，请用冒号隔开各权重，数字越大触发对应回复事件的概率越大，权重数量必须与回复事件数量一致，不一致则缺失项默认为1，注意：meme需装memelite插件（rust版和python版都行）才能起效，'开盒'需装box插件才能起效，'api'需装apis插件才能起效",
-        "default": "1：5：2：7：1：2：2：1"
-    },
-    "follow_poke_th": {
+    "follow_prob": {
         "description": "跟戳概率",
         "type": "float",
-        "hint": "检测到别人被戳时，随机跟着戳一下",
+        "hint": "跟戳机制：检测到别人被戳时，随机跟着戳一下",
         "slider": {
             "min": 0,
             "max": 1,
@@ -19,7 +13,7 @@
     "poke_max_times": {
         "description": "戳一戳最大次数",
         "type": "int",
-        "hint": "发送戳一戳时的最大连戳数, 但bot管理员不受限制",
+        "hint": "次数限制机制：使用命令 “戳 @某人 次数”时，超出最大次数时，则把次数限制为最大次数, 但bot管理员不受此限制",
         "slider": {
             "min": 1,
             "max": 10,
@@ -30,7 +24,7 @@
     "poke_interval": {
         "description": "戳一戳间隔",
         "type": "float",
-        "hint": "发送戳一戳时，每次戳的时间间隔，单位为秒",
+        "hint": "防风控机制：发送戳一戳时，每次戳的时间间隔，单位为秒。实测设为 0 也没风险，但适当的间隔会显得更拟人",
         "slider": {
             "min": 0,
             "max": 10,
@@ -38,10 +32,21 @@
         },
         "default": 0
     },
-    "cooldown_seconds": {
+    "poke_keywords": {
+        "description": "戳一戳关键词",
+        "type": "list",
+        "hint": "蛐蛐检测机制: 用户唤醒bot时, 若消息中包含有列表中的关键词, 则戳几下他",
+        "default": [
+            "笨蛋",
+            "人机",
+            "机器人",
+            "bot"
+        ]
+    },
+    "poke_cd": {
         "description": "戳一戳冷却时间",
         "type": "int",
-        "hint": "每个用户戳bot的冷却时间，单位为秒，冷却时间内不检测该用户的戳一戳，可有效防止挂逼连戳",
+        "hint": "冷却机制: 每个用户戳bot的冷却时间，单位为秒，冷却时间内不检测该用户的戳一戳，可有效防止挂逼连戳",
         "slider": {
             "min": 2,
             "max": 30,
@@ -49,58 +54,217 @@
         },
         "default": 10
     },
-    "llm_prompt_template": {
-        "description": "llm提示模板",
-        "type": "text",
-        "hint": "触发llm回复时，llm的提示模板",
-        "default": "{username} 戳了你一下，请你用一句话回复一下，确保符合人设的同时夹带生气甚至愤怒的情绪，考虑上下文，确保通顺不突兀"
+    "antipoke": {
+        "description": "反戳",
+        "type": "object",
+        "items": {
+            "weight": {
+                "description": "触发权重",
+                "type": "int",
+                "slider": {
+                    "min": 0,
+                    "max": 100,
+                    "step": 1
+                },
+                "default": 10
+            },
+            "max_times": {
+                "description": "最大反戳次数",
+                "type": "int",
+                "slider": {
+                    "min": 1,
+                    "max": 10,
+                    "step": 1
+                },
+                "default": 5
+            }
+        }
     },
-    "ban_prompt_template": {
-        "description": "禁言提示模板",
-        "type": "text",
-        "hint": "触发禁言时，使用的llm提示模板",
-        "default": "{username} 戳了你一下，然后被你禁言了，请你用一句话嘲讽一下，确保符合人设的同时夹带幸灾乐祸的情绪，考虑上下文，确保通顺不突兀"
+    "llm": {
+        "description": "LLM 回复",
+        "type": "object",
+        "items": {
+            "weight": {
+                "description": "触发权重",
+                "type": "int",
+                "slider": {
+                    "min": 0,
+                    "max": 100,
+                    "step": 1
+                },
+                "default": 10
+            },
+            "template": {
+                "description": "llm提示模板",
+                "type": "text",
+                "hint": "触发llm回复时，llm的提示模板",
+                "default": "{username} 戳了你一下，请你用一句话回复一下，确保符合人设的同时夹带生气甚至愤怒的情绪，考虑上下文，确保通顺不突兀"
+            }
+        }
     },
-    "ban_fail_prompt_template": {
-        "description": "禁言失败提示模板",
-        "type": "text",
-        "hint": "触发禁言时，如果禁言失败，使用的llm提示模板",
-        "default": "{username} 戳了你一下，你因为你的身份比这人低而无法禁言这人，请你用一句话吐槽一下，确保符合人设的同时夹带生气甚至愤怒的情绪的情绪，考虑上下文，确保通顺不突兀"
+    "face": {
+        "description": "QQ表情回复",
+        "type": "object",
+        "items": {
+            "weight": {
+                "description": "触发权重",
+                "type": "int",
+                "slider": {
+                    "min": 0,
+                    "max": 100,
+                    "step": 1
+                },
+                "default": 10
+            },
+            "pool": {
+                "description": "表情池",
+                "type": "list",
+                "hint": "触发qq表情回复时, 随机从池中选用一个表情ID",
+                "default": [
+                    1,
+                    11,
+                    14,
+                    15,
+                    23,
+                    25,
+                    26,
+                    27,
+                    31,
+                    46,
+                    97,
+                    98,
+                    18,
+                    265,
+                    266,
+                    267,
+                    271,
+                    287,
+                    312,
+                    352,
+                    427
+                ]
+            }
+        }
     },
-    "ban_time": {
-        "description": "随机禁言时间范围",
-        "type": "string",
-        "hint": "触发禁言时随机禁言的时间范围，单位为秒，用波浪线分隔，例如：30~300",
-        "default": "30~300"
+    "gallery": {
+        "description": "图库回复",
+        "type": "object",
+        "items": {
+            "weight": {
+                "description": "触发权重",
+                "type": "int",
+                "slider": {
+                    "min": 0,
+                    "max": 100,
+                    "step": 1
+                },
+                "default": 10
+            },
+            "path": {
+                "description": "图库路径",
+                "type": "text",
+                "hint": "触发图库回复时，随机调用图库路径里的一张图片，推荐用'astrbot_plugin_gallery'插件管理图库",
+                "default": "data/plugins_data/astrbot_plugin_gallery/戳一戳"
+            }
+        }
     },
-    "face_ids_str": {
-        "description": "表情ID",
-        "type": "text",
-        "hint": "触发qq表情回复时，随机调用一个表情ID，请用逗号隔开各个表情ID",
-        "default": "1，11，14，15，23，25，26，27，31，46，97，98，18，265，266，267，271，287，312，352，427"
+    "ban": {
+        "description": "禁言",
+        "type": "object",
+        "items": {
+            "weight": {
+                "description": "触发权重",
+                "type": "int",
+                "slider": {
+                    "min": 0,
+                    "max": 100,
+                    "step": 1
+                },
+                "default": 10
+            },
+            "duration": {
+                "description": "基础禁言时间",
+                "type": "int",
+                "hint": "触发禁言时的基础禁言时间（单位：秒）",
+                "slider": {
+                    "min": 0,
+                    "max": 3600,
+                    "step": 1
+                },
+                "default": 60
+            },
+            "delta": {
+                "description": "禁言时间波动范围",
+                "type": "int",
+                "hint": "在基础禁言时间上随机上下浮动的秒数（±），例如 15 表示 base±15",
+                "slider": {
+                    "min": 0,
+                    "max": 600,
+                    "step": 1
+                },
+                "default": 30
+            },
+            "ban_template": {
+                "description": "禁言提示模板",
+                "type": "text",
+                "hint": "触发禁言时，使用的llm提示模板",
+                "default": "{username} 戳了你一下，然后被你禁言了，请你用一句话嘲讽一下，确保符合人设的同时夹带幸灾乐祸的情绪，考虑上下文，确保通顺不突兀"
+            },
+            "ban_fail_template": {
+                "description": "禁言失败提示模板",
+                "type": "text",
+                "hint": "触发禁言时，如果禁言失败，使用的llm提示模板",
+                "default": "{username} 戳了你一下，你因为你的身份比这人低而无法禁言这人，请你用一句话吐槽一下，确保符合人设的同时夹带生气甚至愤怒的情绪的情绪，考虑上下文，确保通顺不突兀"
+            }
+        }
     },
-    "meme_cmds_str": {
-        "description": "meme命令",
-        "type": "text",
-        "hint": "触发meme回复时，随机调用meme命令列表里的一条命令，请用逗号隔开各个命令",
-        "default": "捣，踩，玩，拍，丢，揍，爬，锤，锤，吃，敲，滚，啃，胡桃啃，捏，小丑，震动，晃脑，上香，咖波撕"
-    },
-    "api_cmds_str": {
-        "description": "api命令",
-        "type": "text",
-        "hint": "触发api回复时，随机调用api命令列表里的一条命令，请用逗号隔开各个命令",
-        "default": "看看漫画，看看动漫，看看治愈，音乐视频，看看原神，看看emo"
-    },
-    "gallery_path": {
-        "description": "图库路径",
-        "type": "text",
-        "hint": "触发图库回复时，随机调用图库路径里的一张图片，推荐用'astrbot_plugin_gallery'插件管理图库",
-        "default": "data/plugins_data/astrbot_plugin_gallery/戳一戳"
-    },
-    "poke_keywords": {
-        "description": "戳一戳关键词",
-        "type": "text",
-        "hint": "唤醒bot的消息中包含列表中的关键词时，触发戳一戳，请用逗号隔开各个关键词",
-        "default": "笨蛋，人机，机器人，bot"
+    "command": {
+        "description": "命令回复",
+        "type": "object",
+        "items": {
+            "weight": {
+                "description": "触发权重",
+                "type": "int",
+                "slider": {
+                    "min": 0,
+                    "max": 100,
+                    "step": 1
+                },
+                "default": 10
+            },
+            "pool": {
+                "description": "命令池",
+                "type": "list",
+                "hint": "触发命令回复时，随机发送命令列表里的一个命令， 从而调用其他插件的功能，请用逗号隔开各个命令，并请确保命令在其他插件中有定义",
+                "default": [
+                    "盒",
+                    "捣",
+                    "踩",
+                    "玩",
+                    "拍",
+                    "丢",
+                    "揍",
+                    "爬",
+                    "锤",
+                    "吃",
+                    "敲",
+                    "滚",
+                    "啃",
+                    "胡桃啃",
+                    "捏",
+                    "小丑",
+                    "震动",
+                    "晃脑",
+                    "上香",
+                    "咖波撕",
+                    "看看漫画",
+                    "看看动漫",
+                    "看看治愈",
+                    "音乐视频",
+                    "看看原神",
+                    "看看emo"
+                ]
+            }
+        }
     }
 }
