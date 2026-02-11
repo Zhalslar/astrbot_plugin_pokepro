@@ -76,6 +76,10 @@ class GetPokeHandler:
             await self.sender.event_send(event, target_id=evt.target_id, times=1)
             return
 
+        # 只响应戳自己的戳
+        if not evt.is_self_poked:
+            return
+
         module = random.choices(self._modules, self._weights, k=1)[0]
         handler = self.handlers[module]
 
