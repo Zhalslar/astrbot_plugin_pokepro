@@ -75,7 +75,7 @@ class PokeSender:
 
         self_id = int(event.get_self_id())
         group_id_raw = event.get_group_id()
-        group_id = int(group_id_raw) if group_id_raw is not None else None
+        group_id = int(group_id_raw) if group_id_raw and str(group_id_raw).strip() else None
 
         target_ids = self._normalize_target_ids(
             target_id,
