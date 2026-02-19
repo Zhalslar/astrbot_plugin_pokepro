@@ -2,6 +2,6 @@ name: astrbot_plugin_pokepro
 display_name: 专业戳一戳
 desc: 【专业的戳一戳插件】支持触发（反戳：LLM：face：图库：禁言：命令），戳@某人，跟戳
 help: 略
-version: v2.0.2
+version: v2.0.3
 author: Zhalslar
 repo: https://github.com/Zhalslar/astrbot_plugin_pokepro
