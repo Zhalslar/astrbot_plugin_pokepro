@@ -39,16 +39,19 @@ class PokeproPlugin(Star):
 
         is_admin = event.is_admin()
         gid = event.get_group_id()
+        self_id = event.get_self_id()
 
         # 获取目标用户ID
-        target_ids = get_ats(event)
+        target_ids: list[str] = get_ats(event)
         if "我" in msg:
             target_ids.append(event.get_sender_id())
         if "全体成员" in msg and is_admin:
-            target_ids = await get_member_ids(event)
+            target_ids = [str(mid) for mid in await get_member_ids(event)]
         if not target_ids:
             result: dict = await event.bot.get_group_msg_history(group_id=int(gid))
-            target_ids = [msg["sender"]["user_id"] for msg in result["messages"]]
+            target_ids = [str(msg["sender"]["user_id"]) for msg in result["messages"]]
+        if self_id in target_ids:
+            target_ids.remove(self_id)
         if not target_ids:
             return
 

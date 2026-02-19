@@ -138,14 +138,16 @@ class GetPokeHandler:
 
     async def respond_cmd(self, event: AiocqhttpMessageEvent):
         """调用命令"""
-        evt = copy.deepcopy(event)
+        evt = copy.copy(event)
+        evt.message_obj = copy.copy(event.message_obj)
+        evt._extras = dict(event.get_extra())
+        evt.clear_result()
         event.stop_event()
 
         cmd = self.cfg.get_command()
 
-        obj_msg = evt.message_obj.message
-        obj_msg.clear()
-        obj_msg.extend([At(qq=evt.get_self_id()), Plain(cmd)])
+        evt.message_obj.message = [At(qq=evt.get_self_id()), Plain(cmd)]
+        evt.message_obj.message_str = cmd
 
         evt.is_at_or_wake_command = True
         evt.message_str = cmd
