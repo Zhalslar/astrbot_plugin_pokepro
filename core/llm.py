@@ -7,8 +7,8 @@ from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import (
 )
 from astrbot.core.star.context import Context
 
-from .utils import get_nickname
 from .config import PluginConfig
+from .utils import get_nickname
 
 
 class LLMService:

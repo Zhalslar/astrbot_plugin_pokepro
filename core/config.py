@@ -1,9 +1,9 @@
 # config.py
 from __future__ import annotations
 
+import random
 from collections.abc import Mapping, MutableMapping
 from pathlib import Path
-import random
 from types import MappingProxyType, UnionType
 from typing import Any, Union, get_args, get_origin, get_type_hints
 
