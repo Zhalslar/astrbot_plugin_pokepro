@@ -7,9 +7,9 @@ from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import (
 
 from .core.config import PluginConfig
 from .core.on_poke import GetPokeHandler
-from .core.utils import get_ats, get_member_ids
-from .core.send_poke import PokeSender
 from .core.scheduler import PokeScheduler
+from .core.send_poke import PokeSender
+from .core.utils import get_ats, get_member_ids
 
 
 class PokeproPlugin(Star):
@@ -54,7 +54,7 @@ class PokeproPlugin(Star):
 
         await self.sender.event_send(
             event,
-            target_id=target_ids,
+            target_ids=target_ids,
             times=times,
         )
         event.stop_event()
@@ -77,6 +77,6 @@ class PokeproPlugin(Star):
             if self.cfg.hit_poke_keywords(event.message_str):
                 await self.sender.event_send(
                     event,
-                    target_id=event.get_sender_id(),
+                    target_ids=[event.get_sender_id()],
                     times=1,
                 )

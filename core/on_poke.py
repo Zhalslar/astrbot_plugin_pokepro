@@ -9,12 +9,11 @@ from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import (
 )
 from astrbot.core.star.context import Context
 
-from .llm import LLMService
 from .config import PluginConfig
 from .cooldown import Cooldown
-from .model import PokeEvent
+from .llm import LLMService
+from .model import PokeEvent, PokeModel
 from .send_poke import PokeSender
-from .model import PokeModel
 
 
 class GetPokeHandler:
@@ -73,7 +72,7 @@ class GetPokeHandler:
 
         # 别人被戳则随机跟戳
         if not evt.is_self_poked and random.random() < self.cfg.follow_prob:
-            await self.sender.event_send(event, target_id=evt.target_id, times=1)
+            await self.sender.event_send(event, target_ids=[evt.target_id], times=1)
             return
 
         # 只响应戳自己的戳
@@ -96,7 +95,7 @@ class GetPokeHandler:
         """反戳"""
         await self.sender.event_send(
             event,
-            target_id=event.get_sender_id(),
+            target_ids=[event.get_sender_id()],
             times=self.cfg.get_antipoke_times(),
         )
         event.stop_event()
