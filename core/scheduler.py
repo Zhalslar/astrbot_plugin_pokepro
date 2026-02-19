@@ -7,8 +7,8 @@ from apscheduler.triggers.cron import CronTrigger
 
 from astrbot.api import logger
 
-from .send_poke import PokeSender
 from .config import PluginConfig
+from .send_poke import PokeSender
 
 
 class PokeScheduler:
@@ -70,7 +70,7 @@ class PokeScheduler:
             gid, uid = target
             await self.sender.client_send(
                 client=self.client,
-                target_id=uid,
+                target_ids=uid,
                 group_id=gid,
                 times=self.cfg.times,
             )
