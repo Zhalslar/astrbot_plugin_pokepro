@@ -1,7 +1,6 @@
 from dataclasses import dataclass
-from typing import Any, Optional
-
 from enum import Enum
+from typing import Any, Optional
 
 
 class PokeModel(Enum):
