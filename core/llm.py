@@ -1,7 +1,6 @@
 import json
 
 from astrbot.api import logger
-from astrbot.core.db.po import Persona, Personality
 from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import (
     AiocqhttpMessageEvent,
 )
@@ -16,80 +15,24 @@ class LLMService:
         self.context = context
         self.cfg = config
 
-    async def get_respond(
-        self, event: AiocqhttpMessageEvent, prompt_template: str
-    ) -> str | None:
-        """调用 LLM 回复"""
+    async def get_conversation(self, event: AiocqhttpMessageEvent):
+        """获取或创建当前会话的 conversation 对象"""
         umo = event.unified_msg_origin
-
-        contexts = await self._get_contexts(umo)
-        if contexts is None:
-            return None
-
-        system_prompt = await self._get_system_prompt(umo)
-        if not system_prompt:
-            return None
-
-        prompt = await self._build_prompt(event, prompt_template)
-
-        using_provider = self.context.get_using_provider(umo)
-        if not using_provider:
-            return None
-
+        conv_mgr = self.context.conversation_manager
         try:
-            logger.debug(f"[戳一戳] LLM 调用：{prompt}")
-            resp = await using_provider.text_chat(
-                system_prompt=system_prompt,
-                prompt=prompt,
-                contexts=contexts,
-            )
-            return resp.completion_text
+            cid = await conv_mgr.get_curr_conversation_id(umo)
+            if not cid:
+                cid = await conv_mgr.new_conversation(umo, event.get_platform_id())
+            return await conv_mgr.get_conversation(umo, cid)
         except Exception as e:
-            logger.error(f"LLM 调用失败：{e}")
+            logger.warning(f"[Pokepro] 获取 conversation 失败: {e}")
             return None
 
-    # ========================
-    # 内部方法
-    # ========================
-
-    async def _get_contexts(self, umo) -> list | None:
-        """获取当前会话上下文"""
-        conv_mgr = self.context.conversation_manager
-        cid = await conv_mgr.get_curr_conversation_id(umo)
-        if not cid:
-            return None
-
-        conversation = await conv_mgr.get_conversation(umo, cid)
-        if not conversation:
-            return None
-
-        return json.loads(conversation.history)
-
-    async def _get_system_prompt(self, umo) -> str | None:
-        """获取 system prompt（优先会话人格，失败回退默认人格）"""
-        conv_mgr = self.context.conversation_manager
-        cid = await conv_mgr.get_curr_conversation_id(umo)
-        if not cid:
-            return None
-
-        conversation = await conv_mgr.get_conversation(umo, cid)
-        if not conversation:
-            return None
-
-        try:
-            persona: Persona = await self.context.persona_manager.get_persona(
-                persona_id=conversation.persona_id  # type: ignore
-            )
-            return persona.system_prompt
-        except ValueError:
-            personality: Personality = (
-                await self.context.persona_manager.get_default_persona_v3(umo=umo)
-            )
-            return personality["prompt"]
-
-    async def _build_prompt(self, event: AiocqhttpMessageEvent, template: str) -> str:
+    async def build_prompt(
+        self, event: AiocqhttpMessageEvent, prompt_template: str
+    ) -> str:
         """构建用户 prompt"""
         username = await get_nickname(
             event.bot, event.get_group_id(), event.get_sender_id()
         )
-        return template.format(username=username)
+        return prompt_template.format(username=username)

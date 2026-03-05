@@ -80,6 +80,7 @@ class GetPokeHandler:
             return
 
         module = random.choices(self._modules, self._weights, k=1)[0]
+        logger.debug(f"[戳一戳] 触发响应模块: {module}")
         handler = self.handlers[module]
 
         try:
@@ -104,8 +105,9 @@ class GetPokeHandler:
     async def respond_llm(self, event: AiocqhttpMessageEvent):
         """调用llm回复"""
         template = self.cfg.llm.template
-        if text := await self.llm.get_respond(event, template):
-            yield event.plain_result(text)
+        prompt = await self.llm.build_prompt(event, template)
+        conversation = await self.llm.get_conversation(event)
+        yield event.request_llm(prompt=prompt, conversation=conversation)
 
     async def respond_face(self, event: AiocqhttpMessageEvent):
         """回复emoji(QQ表情)"""
@@ -133,8 +135,9 @@ class GetPokeHandler:
         except Exception:
             template = cfg.ban_fail_template
         finally:
-            if text := await self.llm.get_respond(event, template):
-                yield event.plain_result(text)
+            prompt = await self.llm.build_prompt(event, template)
+            conversation = await self.llm.get_conversation(event)
+            yield event.request_llm(prompt=prompt, conversation=conversation)
 
     async def respond_cmd(self, event: AiocqhttpMessageEvent):
         """调用命令"""
