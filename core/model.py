@@ -10,6 +10,7 @@ class PokeModel(Enum):
     meme = "meme"
     BAN = "ban"
     COMMAND = "command"
+    YUYIN = "yuyin"
 
     def __str__(self) -> str:
         return self.value
