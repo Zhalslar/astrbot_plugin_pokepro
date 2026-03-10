@@ -164,6 +164,7 @@ class PluginConfig(ConfigNode):
     llm: LLMConfig
     face: FaceConfig
     meme: MemeConfig
+    yuyin: YuyinConfig
     ban: BanConfig
     command: CommandConfig
 
@@ -184,7 +185,9 @@ class PluginConfig(ConfigNode):
         self.plugin_dir = Path(get_astrbot_plugin_path()) / self._plugin_name
         self.logo_path = self.plugin_dir / "logo.png"
         self.file_pool_dir = self.data_dir / "files" / "meme" / "pool"
+       self.yuyin_pool_dir = self.data_dir / "files" / "meme" / "yuyin"
         self.file_pool_dir.mkdir(parents=True, exist_ok=True)
+self.yuyin_pool_dir.mkdir(parents=True, exist_ok=True)
 
         self._ensure_non_empty_pools()
         self.save_config()
@@ -253,12 +256,22 @@ class PluginConfig(ConfigNode):
         abs_path = self.data_dir / rel_path
         return str(abs_path.resolve())
 
+    def get_audio(self) -> str:
+        """获取语音文件"""
+        if not self.yuyin.pool:
+            logger.warning("语音池为空，无法发送语音")
+            return ""
+        rel_path = Path(random.choice(self.yuyin.pool))
+        abs_path = self.data_dir / rel_path
+        return str(abs_path.resolve())
+
     def weight_of(self, module: PokeModel) -> int:
         return {
             PokeModel.ANTIPOKE: self.antipoke.weight,
             PokeModel.LLM: self.llm.weight,
             PokeModel.FACE: self.face.weight,
             PokeModel.meme: self.meme.weight,
+            PokeModel.YUYIN: self.yuyin.weight,
             PokeModel.BAN: self.ban.weight,
             PokeModel.COMMAND: self.command.weight,
         }[module]
