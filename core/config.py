@@ -131,6 +131,11 @@ class MemeConfig(ConfigNode):
     pool: list[str]
 
 
+class YuyinConfig(ConfigNode):
+    weight: int
+    pool: list[str]
+
+
 class BanConfig(ConfigNode):
     weight: int
     duration: int
