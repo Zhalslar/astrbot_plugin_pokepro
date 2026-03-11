@@ -185,9 +185,9 @@ class PluginConfig(ConfigNode):
         self.plugin_dir = Path(get_astrbot_plugin_path()) / self._plugin_name
         self.logo_path = self.plugin_dir / "logo.png"
         self.file_pool_dir = self.data_dir / "files" / "meme" / "pool"
-       self.yuyin_pool_dir = self.data_dir / "files" / "meme" / "yuyin"
+        self.yuyin_pool_dir = self.data_dir / "files" / "meme" / "yuyin"
         self.file_pool_dir.mkdir(parents=True, exist_ok=True)
-self.yuyin_pool_dir.mkdir(parents=True, exist_ok=True)
+        self.yuyin_pool_dir.mkdir(parents=True, exist_ok=True)
 
         self._ensure_non_empty_pools()
         self.save_config()
