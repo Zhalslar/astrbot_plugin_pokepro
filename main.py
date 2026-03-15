@@ -20,6 +20,13 @@ class PokeproPlugin(Star):
         self.get_poke_handler = GetPokeHandler(context, self.cfg, self.sender)
         self.scheduler = None
 
+    def _normalize_poke_times(self, times: int | str | None) -> int:
+        try:
+            value = int(times) if times is not None else 1
+        except (TypeError, ValueError):
+            value = 1
+        return max(1, min(self.cfg.poke_max_times, value))
+
     async def initialize(self):
         if self.cfg.scheduler.enabled:
             self.scheduler = PokeScheduler(self.cfg, self.sender)
@@ -34,8 +41,7 @@ class PokeproPlugin(Star):
         """戳 @某人/我/全体成员"""
         msg = event.message_str
         end = msg.split()[-1]
-        times = int(end) if end.isdigit() else 1
-        times = min(self.cfg.poke_max_times, times)
+        times = self._normalize_poke_times(end if end.isdigit() else 1)
 
         is_admin = event.is_admin()
         gid = event.get_group_id()
@@ -62,6 +68,38 @@ class PokeproPlugin(Star):
         )
         event.stop_event()
 
+    @filter.llm_tool()
+    async def llm_poke_user(
+        self,
+        event: AiocqhttpMessageEvent,
+        user_id: str,
+        times: int = 1,
+    ):
+        """
+        戳指定用户。
+        Args:
+            user_id(string): 要戳的目标用户QQ号，必定为一串数字，如(12345678)
+            times(number): 戳的次数，默认为1，实际会限制在插件配置允许的最大次数内
+        """
+        user_id = str(user_id).strip()
+        if not user_id or not user_id.isdigit():
+            return "戳一戳失败：user_id 必须是纯数字 QQ 号"
+
+        if user_id == event.get_self_id():
+            return "戳一戳失败：不能戳机器人自己"
+
+        actual_times = self._normalize_poke_times(times)
+
+        try:
+            await self.sender.event_send(
+                event,
+                target_ids=[user_id],
+                times=actual_times,
+            )
+            return f"已戳用户 {user_id} {actual_times} 次"
+        except Exception as e:
+            return f"戳一戳失败：{e}"
+
     @filter.platform_adapter_type(filter.PlatformAdapterType.AIOCQHTTP)
     @filter.event_message_type(filter.EventMessageType.ALL)
     async def on_message(self, event: AiocqhttpMessageEvent):
@@ -83,6 +121,3 @@ class PokeproPlugin(Star):
                     target_ids=[event.get_sender_id()],
                     times=1,
                 )
-
-
-
