@@ -154,6 +154,14 @@
                 "type": "file",
                 "hint": "触发表情包回复时, 随机从池中选出一张图片发送",
                 "default": []
+            },
+            "paths": {
+                "description": "图库路径池",
+                "type": "list",
+                "hint": "所有路径下的图片文件路径都会读取，与表情包图片池的路径整合成一个可选图片池，触发时从池中选一张图片发送。 请用 / 分隔路径, 支持绝对路径和相对路径",
+                "default": [
+                    "data/plugin_data/astrbot_plugin_gallery/galleries/戳一戳"
+                ]
             }
         }
     },

@@ -120,7 +120,11 @@ class GetPokeHandler:
     async def respond_meme(self, event: AiocqhttpMessageEvent):
         """回复表情包"""
         img = self.cfg.get_image()
-        yield event.image_result(img)
+        if img:
+            yield event.image_result(img)
+        else:
+            logger.warning("[戳一戳] 表情包池为空，无法发送图片")
+            yield None
 
     async def respond_record(self, event: AiocqhttpMessageEvent):
         """回复语音"""

@@ -10,8 +10,12 @@ from typing import Any, Union, get_args, get_origin, get_type_hints
 from astrbot.api import logger
 from astrbot.core.config.astrbot_config import AstrBotConfig
 from astrbot.core.star.context import Context
-from astrbot.core.star.star_tools import StarTools
-from astrbot.core.utils.astrbot_path import get_astrbot_plugin_path
+from astrbot.core.utils.astrbot_path import (
+    get_astrbot_plugin_data_path,
+    get_astrbot_plugin_path,
+    get_astrbot_root,
+)
+from astrbot.core.utils.image_ref_utils import ALLOWED_IMAGE_EXTENSIONS
 
 from .model import PokeModel
 
@@ -129,6 +133,7 @@ class FaceConfig(ConfigNode):
 class MemeConfig(ConfigNode):
     weight: int
     pool: list[str]
+    paths: list[str]
 
 
 class RecordConfig(ConfigNode):
@@ -182,12 +187,14 @@ class PluginConfig(ConfigNode):
         self.context = context
         self.target_list = self._parse_target()
 
-        self.data_dir = StarTools.get_data_dir(self._plugin_name)
+        self.root_dir = Path(get_astrbot_root())
+        self.data_dir = Path(get_astrbot_plugin_data_path()) / self._plugin_name
         self.plugin_dir = Path(get_astrbot_plugin_path()) / self._plugin_name
         self.logo_path = self.plugin_dir / "logo.png"
         self.file_pool_dir = self.data_dir / "files" / "meme" / "pool"
         self.file_pool_dir.mkdir(parents=True, exist_ok=True)
 
+        self.meme_image_pool = self._collect_meme_images()
         self._ensure_non_empty_pools()
         self.save_config()
 
@@ -210,9 +217,11 @@ class PluginConfig(ConfigNode):
             self.command.pool.append("盒")
             logger.warning("命令池为空，已添加默认值：盒")
 
-        if not self.meme.pool:
+        if not self.meme_image_pool:
             target = self.file_pool_dir / self.logo_path.name
-            self.meme.pool.append("files/meme/pool/logo.png")
+            default_path = "files/meme/pool/logo.png"
+            if default_path not in self.meme.pool:
+                self.meme.pool.append(default_path)
             if not target.exists():
                 try:
                     target.write_bytes(self.logo_path.read_bytes())
@@ -221,6 +230,86 @@ class PluginConfig(ConfigNode):
                     logger.error(
                         f"复制默认表情包失败：{self.logo_path} -> {target}, {e}"
                     )
+            self.meme_image_pool = self._collect_meme_images()
+
+    def _collect_meme_images(self) -> list[str]:
+        image_pool: list[str] = []
+        seen: set[str] = set()
+
+        for raw_path in self.meme.pool or []:
+            image_path = self._resolve_meme_pool_file(raw_path)
+            if image_path is None:
+                continue
+            resolved = str(image_path.resolve())
+            if resolved in seen:
+                continue
+            seen.add(resolved)
+            image_pool.append(resolved)
+
+        for raw_path in self.meme.paths or []:
+            search_path = self._resolve_meme_search_path(raw_path)
+            if search_path is None:
+                continue
+
+            if search_path.is_file():
+                if search_path.suffix.lower() not in ALLOWED_IMAGE_EXTENSIONS:
+                    logger.warning(f"表情包图库文件格式不受支持，已跳过：{search_path}")
+                    continue
+                candidates = [search_path]
+            elif search_path.is_dir():
+                candidates = sorted(
+                    path
+                    for path in search_path.rglob("*")
+                    if path.is_file()
+                    and path.suffix.lower() in ALLOWED_IMAGE_EXTENSIONS
+                )
+            else:
+                logger.warning(f"表情包图库路径不存在，已跳过：{search_path}")
+                continue
+
+            if not candidates:
+                logger.warning(f"表情包图库路径下未找到图片，已跳过：{search_path}")
+                continue
+
+            for image_path in candidates:
+                if image_path.suffix.lower() not in ALLOWED_IMAGE_EXTENSIONS:
+                    continue
+                resolved = str(image_path.resolve())
+                if resolved in seen:
+                    continue
+                seen.add(resolved)
+                image_pool.append(resolved)
+
+        return image_pool
+
+    def _resolve_meme_pool_file(self, raw_path: str) -> Path | None:
+        if not raw_path:
+            return None
+
+        path = Path(raw_path).expanduser()
+        if not path.is_absolute():
+            path = self.data_dir / path
+        path = path.resolve(strict=False)
+
+        if not path.exists():
+            logger.warning(f"表情包图片不存在，已跳过：{path}")
+            return None
+        if not path.is_file():
+            logger.warning(f"表情包图片路径不是文件，已跳过：{path}")
+            return None
+        if path.suffix.lower() not in ALLOWED_IMAGE_EXTENSIONS:
+            logger.warning(f"表情包图片格式不受支持，已跳过：{path}")
+            return None
+        return path
+
+    def _resolve_meme_search_path(self, raw_path: str) -> Path | None:
+        if not raw_path:
+            return None
+
+        path = Path(raw_path).expanduser()
+        if not path.is_absolute():
+            path = self.root_dir / path
+        return path.resolve(strict=False)
 
     # ================= 业务辅助方法 =================
 
@@ -251,9 +340,9 @@ class PluginConfig(ConfigNode):
 
     def get_image(self) -> str:
         """获取图片"""
-        rel_path = Path(random.choice(self.meme.pool))
-        abs_path = self.data_dir / rel_path
-        return str(abs_path.resolve())
+        if not self.meme_image_pool:
+            return ""
+        return random.choice(self.meme_image_pool)
 
     def get_record(self) -> str:
         """获取语音"""
