@@ -163,7 +163,7 @@ class GetPokeHandler:
 
         cmd = self.cfg.get_command()
 
-        evt.message_obj.message = [At(qq=evt.get_self_id()), Plain(cmd)]
+        evt.message_obj.message = [At(qq=evt.get_sender_id()), Plain(cmd)]
         evt.message_obj.message_str = cmd
 
         evt.is_at_or_wake_command = True
