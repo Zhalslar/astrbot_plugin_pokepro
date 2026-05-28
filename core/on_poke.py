@@ -3,7 +3,7 @@ import random
 
 from astrbot.api import logger
 from astrbot.api.message_components import Face
-from astrbot.core.message.components import At, Plain, Record
+from astrbot.core.message.components import Plain, Record
 from astrbot.core.platform.sources.aiocqhttp.aiocqhttp_message_event import (
     AiocqhttpMessageEvent,
 )
@@ -106,6 +106,10 @@ class GetPokeHandler:
     async def respond_llm(self, event: AiocqhttpMessageEvent):
         """调用llm回复"""
         template = self.cfg.llm.template
+        if not template:
+            logger.info("[戳一戳] llm提示模板为空，跳过llm回复")
+            yield None
+            return
         prompt = await self.llm.build_prompt(event, template)
         conversation = await self.llm.get_conversation(event)
         yield event.request_llm(prompt=prompt, conversation=conversation)
@@ -149,6 +153,10 @@ class GetPokeHandler:
         except Exception:
             template = cfg.ban_fail_template
         finally:
+            if not template:
+                logger.info("[戳一戳] 禁言提示模板为空，跳过llm回复")
+                yield None
+                return
             prompt = await self.llm.build_prompt(event, template)
             conversation = await self.llm.get_conversation(event)
             yield event.request_llm(prompt=prompt, conversation=conversation)
@@ -163,9 +171,8 @@ class GetPokeHandler:
 
         cmd = self.cfg.get_command()
 
-        evt.message_obj.message = [At(qq=evt.get_sender_id()), Plain(cmd)]
+        evt.message_obj.message = [Plain(cmd)]
         evt.message_obj.message_str = cmd
-
         evt.is_at_or_wake_command = True
         evt.message_str = cmd
         evt.should_call_llm(True)
