@@ -67,6 +67,45 @@ def get_ats(
     return list(ats)
 
 
+async def check_ban_permission(
+    client,
+    group_id: int | str,
+    target_user_id: int | str,
+    self_id: int | str,
+) -> tuple[bool, str]:
+    """检查bot是否有权限禁言指定群成员。返回 (can_ban, reason)"""
+    group_id = int(group_id)
+    self_id = int(self_id)
+    target_user_id = int(target_user_id)
+
+    try:
+        bot_info = await client.get_group_member_info(
+            group_id=group_id, user_id=self_id
+        )
+        bot_role = bot_info.get("role", "member")
+    except Exception as e:
+        return False, f"获取bot自身群信息失败: {e}"
+
+    if bot_role not in ("admin", "owner"):
+        return False, "Bot不是群管理员，无法禁言"
+
+    try:
+        target_info = await client.get_group_member_info(
+            group_id=group_id, user_id=target_user_id
+        )
+        target_role = target_info.get("role", "member")
+    except Exception as e:
+        return False, f"获取目标用户群信息失败: {e}"
+
+    if target_role == "owner":
+        return False, "目标用户是群主，无法禁言"
+
+    if target_role == "admin" and bot_role != "owner":
+        return False, "Bot权限不足，无法禁言管理员"
+
+    return True, ""
+
+
 async def get_member_ids(event: AiocqhttpMessageEvent, num: int = 200) -> list[int]:
     """获取群成员ID列表"""
     try:
