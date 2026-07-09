@@ -58,10 +58,18 @@ class Cooldown:
 
         return max(user_left, group_left, 0.0)
 
-    def reset(self, group_id: int | None, user_id: int) -> None:
+    def reset(
+        self,
+        group_id: int | None,
+        user_id: int,
+        *,
+        include_group: bool = False,
+    ) -> None:
         gid = int(group_id or 0)
         uid = int(user_id)
         self._last_trigger.pop((gid, uid), None)
+        if include_group and gid:
+            self._last_group_trigger.pop(gid, None)
 
     def clear(self) -> None:
         self._last_trigger.clear()
