@@ -164,6 +164,7 @@ class SchedulerConfig(ConfigNode):
 class PluginConfig(ConfigNode):
     on_poke: bool
     poke_cd: int
+    group_poke_cd: int
     follow_prob: float
 
     antipoke: AntiPokeConfig
