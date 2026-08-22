@@ -1,6 +1,10 @@
+from __future__ import annotations
+
 from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Optional
+
+from astrbot.api.message_components import Poke as PokeComponent
 
 
 class PokeModel(Enum):
@@ -41,24 +45,56 @@ class PokeEvent:
         if not isinstance(raw, dict):
             return None
 
-        if raw.get("post_type") != "notice":
-            return None
-        if raw.get("notice_type") != "notify":
-            return None
-        if raw.get("sub_type") != "poke":
-            return None
+        if raw.get("post_type") == "notice":
+            if raw.get("notice_type") != "notify" or raw.get("sub_type") != "poke":
+                return None
+            return cls(
+                time=raw.get("time", 0),
+                self_id=raw.get("self_id", 0),
+                user_id=raw.get("user_id", 0),
+                target_id=raw.get("target_id", 0),
+                group_id=raw.get("group_id"),
+                post_type=raw.get("post_type", ""),
+                notice_type=raw.get("notice_type", ""),
+                sub_type=raw.get("sub_type", ""),
+                raw_info=raw.get("raw_info", []),
+            )
 
-        return cls(
-            time=raw.get("time", 0),
-            self_id=raw.get("self_id", 0),
-            user_id=raw.get("user_id", 0),
-            target_id=raw.get("target_id", 0),
-            group_id=raw.get("group_id"),
-            post_type=raw.get("post_type", ""),
-            notice_type=raw.get("notice_type", ""),
-            sub_type=raw.get("sub_type", ""),
-            raw_info=raw.get("raw_info", []),
-        )
+        # Some OneBot implementations expose a private poke as a private
+        # message containing AstrBot's Poke component instead of a notice.
+        if raw.get("post_type") == "message" and raw.get("message_type") == "private":
+            try:
+                messages = event.get_messages()
+            except Exception:
+                messages = []
+
+            target_id: int | None = None
+            for component in messages:
+                if not isinstance(component, PokeComponent):
+                    continue
+                raw_target = component.target_id()
+                if raw_target:
+                    try:
+                        target_id = int(raw_target)
+                    except (TypeError, ValueError):
+                        pass
+                break
+
+            if target_id is None:
+                return None
+            return cls(
+                time=raw.get("time", 0),
+                self_id=raw.get("self_id", 0),
+                user_id=raw.get("user_id", 0),
+                target_id=target_id,
+                group_id=None,
+                post_type=raw.get("post_type", ""),
+                notice_type="notify",
+                sub_type="poke",
+                raw_info=raw.get("raw_info", []),
+            )
+
+        return None
 
     # ========= 语义属性 =========
 
